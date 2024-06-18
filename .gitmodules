@@ -1,0 +1,6 @@
+[submodule "redis"]
+	path = redis
+	url = https://github.com/redis/redis.git
+[submodule "redis-io_uring"]
+	path = redis-io_uring
+	url = https://github.com/daraccrafter/redis-io_uring.git
