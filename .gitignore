@@ -1,2 +1,4 @@
-csvs/redis/*
-csvs/redis-io_uring/*
+/csvs/redis/*
+/csvs/redis-io_uring/*
+!/csvs/redis/.gitkeep
+!/csvs/redis-io_uring/.gitkeep
