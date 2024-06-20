@@ -2,3 +2,5 @@
 /csvs/redis-io_uring/*
 !/csvs/redis/.gitkeep
 !/csvs/redis-io_uring/.gitkeep
+redis-benchmark
+.vscode

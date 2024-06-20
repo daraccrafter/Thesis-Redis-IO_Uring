@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 
-benchmark = "1_requests_fsync_always"
+benchmark = "2_requests_fsync_everysec"
 request_counts = [1000, 10000, 100000]
 
 base_csv_dir = "csvs"
@@ -21,9 +21,9 @@ iterations = int(sys.argv[2])
 pid_redis = int(sys.argv[3])
 pid_redis_io_uring = int(sys.argv[4])
 
-output_dir_redis = os.path.join(base_csv_dir, "redis", "1", timestamp)
-output_dir_redis_io_uring = os.path.join(base_csv_dir, "redis-io_uring", "1", timestamp)
-graphs_dir = os.path.join(base_graphs_dir, "1", timestamp)
+output_dir_redis = os.path.join(base_csv_dir, "redis", "2", timestamp)
+output_dir_redis_io_uring = os.path.join(base_csv_dir, "redis-io_uring", "2", timestamp)
+graphs_dir = os.path.join(base_graphs_dir, "2", timestamp)
 os.makedirs(output_dir_redis, exist_ok=True)
 os.makedirs(output_dir_redis_io_uring, exist_ok=True)
 os.makedirs(graphs_dir, exist_ok=True)
@@ -108,7 +108,7 @@ def plot_rps_comparison(df_avg_redis, df_avg_redis_io_uring, request_count):
     plot_filename = os.path.join(
         graphs_dir, f"{request_count}_numrequests_rps_comparison.png"
     )
-    plt.savefig(plot_filename, bbox_inches="tight")
+    plt.savefig(plot_filename)
     plt.close()
 
 
