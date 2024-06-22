@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 
-benchmark = "1_requests_fsync_always"
+benchmark = "0_requests_aof_rdb"
 request_counts = [100]
 
 base_csv_dir = "csvs"
@@ -12,26 +12,24 @@ base_graphs_dir = "graphs"
 
 if len(sys.argv) != 5:
     print(
-        "Usage: {benchmark}.py <timestamp> <iterations> <pid_redis> <pid_redis_io_uring>"
+        f"Usage: {benchmark}.py <timestamp> <iterations> <pid_redis> <pid_redis_rdb>"
     )
     exit(1)
 
 timestamp = sys.argv[1]
 iterations = int(sys.argv[2])
 pid_redis = int(sys.argv[3])
-pid_redis_io_uring = int(sys.argv[4])
+pid_redis_rdb = int(sys.argv[4])
 
-output_dir_redis = os.path.join(base_csv_dir, "redis", "1", timestamp)
-output_dir_redis_io_uring = os.path.join(base_csv_dir, "redis-io_uring", "1", timestamp)
-graphs_dir = os.path.join(base_graphs_dir, "1", timestamp)
+output_dir_redis = os.path.join(base_csv_dir, "redis", "0", timestamp)
+graphs_dir = os.path.join(base_graphs_dir, "0", timestamp)
 os.makedirs(output_dir_redis, exist_ok=True)
-os.makedirs(output_dir_redis_io_uring, exist_ok=True)
 os.makedirs(graphs_dir, exist_ok=True)
 
 
-def run_benchmark(request_count, output_dir, port, iteration, pid):
+def run_benchmark(request_count, output_dir, port, iteration, persistance):
     csv_filename = os.path.join(
-        output_dir, f"{request_count}_numrequests_run{iteration}.csv"
+        output_dir, f"{persistance}_{request_count}_run{iteration}.csv"
     )
     command = [
         "./redis-benchmark",
@@ -48,9 +46,9 @@ def run_benchmark(request_count, output_dir, port, iteration, pid):
         subprocess.run(command, stdout=csvfile, check=True)
 
 
-def average_csv_files(request_count, output_dir, iterations):
+def average_csv_files(request_count, output_dir, iterations, persistance):
     files = [
-        os.path.join(output_dir, f"{request_count}_numrequests_run{i}.csv")
+        os.path.join(output_dir, f"{persistance}_{request_count}_run{i}.csv")
         for i in range(1, iterations + 1)
     ]
     df_list = [pd.read_csv(file) for file in files]
@@ -58,16 +56,18 @@ def average_csv_files(request_count, output_dir, iterations):
     df_combined = pd.concat(df_list)
     df_avg = df_combined.groupby("test").mean().reset_index()
 
-    avg_csv_filename = os.path.join(output_dir, f"{request_count}_numrequests_avg.csv")
+    avg_csv_filename = os.path.join(
+        output_dir, f"avg_{persistance}_{request_count}.csv"
+    )
     df_avg.to_csv(avg_csv_filename, index=False)
 
     return df_avg
 
 
-def plot_rps_comparison(df_avg_redis, df_avg_redis_io_uring, request_count):
+def plot_rps_comparison(df_avg_redis, df_avg_redis_rdb, request_count):
     labels = df_avg_redis["test"]
     redis_rps = df_avg_redis["rps"]
-    redis_io_uring_rps = df_avg_redis_io_uring["rps"]
+    redis_io_uring_rps = df_avg_redis_rdb["rps"]
 
     x = range(len(labels))
     bar_width = 0.35
@@ -81,15 +81,15 @@ def plot_rps_comparison(df_avg_redis, df_avg_redis_io_uring, request_count):
         bar_positions_redis,
         redis_rps,
         width=bar_width,
-        label="Redis AOF (appendfsync = always)",
-        color="blue",
+        label="Redis RDB",
+        color="green",
     )
     plt.bar(
         bar_positions_io_uring,
         redis_io_uring_rps,
         width=bar_width,
-        label="Redis IO_Uring (appendfsync = always)",
-        color="red",
+        label="Redis AOF (appendfsync = always)",
+        color="blue",
     )
 
     plt.xlabel("Operation", fontsize=12)
@@ -105,9 +105,7 @@ def plot_rps_comparison(df_avg_redis, df_avg_redis_io_uring, request_count):
     plt.grid(True, axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
 
-    plot_filename = os.path.join(
-        graphs_dir, f"{request_count}_numrequests_rps_comparison.png"
-    )
+    plot_filename = os.path.join(graphs_dir, f"{request_count}_rps.png")
     plt.savefig(plot_filename, bbox_inches="tight")
     plt.close()
 
@@ -116,18 +114,16 @@ if __name__ == "__main__":
     for i in range(1, iterations + 1):
         print(f"\tIteration {i}:")
         for count in request_counts:
-            print(f"\t\tRunning benchmark with {count} requests on Redis io_uring...")
-            run_benchmark(count, output_dir_redis_io_uring, 6379, i, pid_redis_io_uring)
+            print(f"\t\tRunning benchmark with {count} requests on Redis RDB...")
+            run_benchmark(count, output_dir_redis, 6379, i, "rdb")
         for count in request_counts:
             print(f"\t\tRunning benchmark with {count} requests on Redis...")
-            run_benchmark(count, output_dir_redis, 6380, i, pid_redis)
+            run_benchmark(count, output_dir_redis, 6380, i, "aof")
 
     for count in request_counts:
-        avg_redis = average_csv_files(count, output_dir_redis, iterations)
-        avg_redis_io_uring = average_csv_files(
-            count, output_dir_redis_io_uring, iterations
-        )
+        avg_redis_rdb = average_csv_files(count, output_dir_redis, iterations,"rdb")
+        avg_redis = average_csv_files(count, output_dir_redis, iterations,"aof")
 
-        plot_rps_comparison(avg_redis, avg_redis_io_uring, count)
+        plot_rps_comparison(avg_redis_rdb, avg_redis, count)
 
     exit(0)

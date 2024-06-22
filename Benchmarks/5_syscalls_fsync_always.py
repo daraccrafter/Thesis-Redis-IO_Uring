@@ -3,13 +3,12 @@ import os
 import sys
 import pandas as pd
 import matplotlib.pyplot as plt
-import psutil
 import signal
 import math
 import time
 
 benchmark = "5_syscalls_fsync_always"
-request_counts = [1000, 10000, 100000]
+request_counts = [100]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"
@@ -174,19 +173,19 @@ def plot_syscalls_comparison(
         bar_positions_redis,
         redis_syscalls,
         width=bar_width,
-        label="Redis",
+        label="Redis AOF (appendfsync = always)",
         color="blue",
     )
     plt.bar(
         bar_positions_io_uring,
         redis_io_uring_syscalls,
         width=bar_width,
-        label="Redis io_uring",
+        label="Redis IO_Uring (appendfsync = always)",
         color="red",
     )
 
-    plt.xlabel("Systemcall")
-    plt.ylabel("Average number of calls")
+    plt.xlabel("Systemcall", fontsize=12)
+    plt.ylabel("Average number of calls", fontsize=12)
 
     combined_positions = [
         (bar_positions_redis[i] + bar_positions_io_uring[i]) / 2
@@ -225,19 +224,19 @@ def plot_syscall_times_comparison(
         bar_positions_redis,
         redis_syscalls,
         width=bar_width,
-        label="Redis",
+        label="Redis AOF (appendfsync = always)",
         color="blue",
     )
     plt.bar(
         bar_positions_io_uring,
         redis_io_uring_syscalls,
         width=bar_width,
-        label="Redis io_uring",
+        label="Redis IO_Uring (appendfsync = always)",
         color="red",
     )
 
-    plt.xlabel("Systemcall")
-    plt.ylabel("Average latency [s]")
+    plt.xlabel("Systemcall", fontsize=12)
+    plt.ylabel("Average latency [s]", fontsize=12)
     plt.yscale("log")
     combined_positions = [
         (bar_positions_redis[i] + bar_positions_io_uring[i]) / 2

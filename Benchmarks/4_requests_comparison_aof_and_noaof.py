@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 benchmark = "4_requests_comparison_aof_and_noaof"
-request_counts = [1000, 10000, 100000]
+request_counts = [100]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"
@@ -81,19 +81,19 @@ def plot_rps_comparison(df_avg_redis, df_avg_redis_io_uring, request_count):
         bar_positions_redis,
         redis_rps,
         width=bar_width,
-        label="Redis",
-        color="blue",
+        label="Redis RDB",
+        color="green",
     )
     plt.bar(
         bar_positions_io_uring,
         redis_io_uring_rps,
         width=bar_width,
-        label="Redis io_uring",
+        label="Redis IO_Uring (appendfsync = always)",
         color="red",
     )
 
-    plt.xlabel("Operation")
-    plt.ylabel("Requests per second (RPS)")
+    plt.xlabel("Operation", fontsize=12)
+    plt.ylabel("Requests per second (RPS)", fontsize=12)
 
     combined_positions = [
         (bar_positions_redis[i] + bar_positions_io_uring[i]) / 2
