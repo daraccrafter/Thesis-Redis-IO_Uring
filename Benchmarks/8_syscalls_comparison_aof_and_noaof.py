@@ -8,7 +8,7 @@ import math
 import time
 
 benchmark = "8_syscalls_comparison_aof_and_noaof"
-request_counts = [100]
+request_counts = [1000000]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"

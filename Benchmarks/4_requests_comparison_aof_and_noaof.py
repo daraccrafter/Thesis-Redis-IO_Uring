@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 benchmark = "4_requests_comparison_aof_and_noaof"
-request_counts = [100]
+request_counts = [1000000]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"

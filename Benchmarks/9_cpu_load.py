@@ -7,7 +7,7 @@ import threading
 import subprocess
 
 benchmark = "1_requests_fsync_always"
-request_counts = [10000]
+request_counts = [1000000]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"

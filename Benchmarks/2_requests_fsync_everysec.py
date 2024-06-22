@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 benchmark = "2_requests_fsync_everysec"
-request_counts = [1000, 10000, 100000]
+request_counts = [1000000]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"
