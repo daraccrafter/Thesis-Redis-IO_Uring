@@ -8,7 +8,7 @@ import math
 import time
 
 benchmark = "5_syscalls_fsync_always"
-request_counts = [1000000]
+request_counts = [100000]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"

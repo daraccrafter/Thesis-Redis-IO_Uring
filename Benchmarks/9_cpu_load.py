@@ -6,8 +6,8 @@ import psutil
 import threading
 import subprocess
 
-benchmark = "1_requests_fsync_always"
-request_counts = [1000000]
+benchmark = "9_cpu_load_fsync_always"
+request_counts = [100000]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"
@@ -133,19 +133,18 @@ def plot_cpu_comparison(avg_redis, avg_redis_io_uring, request_count):
         bar_positions_redis,
         redis_values,
         width=bar_width,
-        label="Redis",
+        label="Redis AOF (appendfsync = always)",
         color="blue",
-        width=bar_width
     )
     plt.bar(
         bar_positions_io_uring,
         redis_io_uring_values,
         width=bar_width,
-        label="Redis io_uring",
+        label="Redis IO_Uring (appendfsync = always)",
         color="red",
     )
 
-    plt.ylabel("Average CPU usage (%)")
+    plt.ylabel("Average CPU usage (%)",fontsize=12)
     plt.xticks([])
 
     plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
@@ -169,20 +168,23 @@ def plot_memory_comparison(avg_redis, avg_redis_io_uring, request_count):
 
     bar_positions_redis = [p - bar_width / 2 for p in x]
     bar_positions_io_uring = [p + bar_width / 2 for p in x]
-
     plt.bar(
-        bar_positions_redis, redis_values, width=bar_width, label="Redis", color="blue"
+        bar_positions_redis,
+        redis_values,
+        width=bar_width,
+        label="Redis AOF (appendfsync = always)",
+        color="blue",
     )
     plt.bar(
         bar_positions_io_uring,
         redis_io_uring_values,
         width=bar_width,
-        label="Redis io_uring",
+        label="Redis IO_Uring (appendfsync = always)",
         color="red",
     )
 
     plt.xticks([])
-    plt.ylabel("Average memory usage (MB)")
+    plt.ylabel("Average memory usage (MB)", fontsize=12)
 
     plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
     plt.grid(True, axis="y", linestyle="--", alpha=0.7)
