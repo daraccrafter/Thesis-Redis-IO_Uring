@@ -8,7 +8,7 @@ from benchmarks.benchmark_util import load_config
 
 redis_server_1 = None
 redis_io_uring_server_process = None
-request_counts = [10000]
+request_counts = [1000000]
 
 
 def start_redis_server(command, cwd):
