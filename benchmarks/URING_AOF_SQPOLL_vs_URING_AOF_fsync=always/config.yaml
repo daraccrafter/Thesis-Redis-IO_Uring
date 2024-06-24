@@ -1,0 +1,10 @@
+server1: redis-io_uring
+server2: redis-io_uring
+
+server1_config: redis_uring_sqpoll.conf
+server2_config: redis_uring.conf
+server1_data_dir: redis-io_uring_sqpoll
+server2_data_dir: redis-io_uring
+
+benchmark: AOF_vs_URING_AOF_fsync=always
+benchmark_no: 4

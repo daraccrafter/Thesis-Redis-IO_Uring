@@ -51,6 +51,7 @@ def run_benchmark_script(script_path, timestamp, iterations):
     server1_config = config["server1_config"]
     server2_config = config["server2_config"]
 
+    print("Running benchmark script: %s" % script_path)
     server1_conf_path = os.path.join(script_dir, server1_config)
     server2_conf_path = os.path.join(script_dir, server2_config)
 
