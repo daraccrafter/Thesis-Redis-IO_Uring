@@ -31,18 +31,14 @@ def monitor_process(pid, stop_event, cpu_usages, memory_usages):
         print(f"Process {pid} not found")
 
 
-def create_directories(script_dir,timestamp,server1="redis",server2="redis-io_uring"):
-    output_dir_s1 = os.path.join(
-        script_dir, "data", base_csv_dir, server1, timestamp
-    )
-    output_dir_s2 = os.path.join(
-        script_dir, "data", base_csv_dir, server2, timestamp
-    )
-    graphs_dir = os.path.join(script_dir,"data",base_graphs_dir, timestamp)
-    logs_dir_s1 = os.path.join(script_dir,"data",base_logs_dir, server1,  timestamp)
-    logs_dir_s2 = os.path.join(
-        script_dir,"data",base_logs_dir, server2, timestamp
-    )
+def create_directories(
+    script_dir, timestamp, server1="redis", server2="redis-io_uring"
+):
+    output_dir_s1 = os.path.join(script_dir, "data", base_csv_dir, server1, timestamp)
+    output_dir_s2 = os.path.join(script_dir, "data", base_csv_dir, server2, timestamp)
+    graphs_dir = os.path.join(script_dir, "data", base_graphs_dir, timestamp)
+    logs_dir_s1 = os.path.join(script_dir, "data", base_logs_dir, server1, timestamp)
+    logs_dir_s2 = os.path.join(script_dir, "data", base_logs_dir, server2, timestamp)
     os.makedirs(output_dir_s1, exist_ok=True)
     os.makedirs(output_dir_s2, exist_ok=True)
     os.makedirs(graphs_dir, exist_ok=True)
@@ -149,7 +145,7 @@ def average_rps_csv_files(output_dir, iterations, filename_pattern, avg_filename
     return df_avg
 
 
-def average_load_csv_files(request_count, output_dir, iterations,persistance=""):
+def average_load_csv_files(request_count, output_dir, iterations, persistance=""):
     cpu_usages = []
     memory_usages = []
     for i in range(1, iterations + 1):
@@ -463,7 +459,7 @@ def plot_rps_comparison(
     rps_2 = df_avg_2["rps"]
     x = range(len(labels))
     bar_width = 0.35
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 6))
     bar_positions_1 = [p - bar_width / 2 for p in x]
     bar_positions_2 = [p + bar_width / 2 for p in x]
     plt.bar(

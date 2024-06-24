@@ -78,8 +78,8 @@ if __name__ == "__main__":
             avg_redis_io_uring,
             count,
             graphs_dir,
-            label_1="Redis AOF (appendfsync=always)",
-            label_2="Redis AOF IO_Uring (appendfsync=always)",
+            label_1="AOF (appendfsync=always)",
+            label_2="AOF IO_Uring (appendfsync=always)",
             bar_1_color="blue",
             bar_2_color="red",
         )
@@ -88,8 +88,8 @@ if __name__ == "__main__":
             avg_redis_io_uring,
             count,
             graphs_dir,
-            label_1="Redis AOF (appendfsync=always)",
-            label_2="Redis AOF IO_Uring (appendfsync=always)",
+            label_1="AOF (appendfsync=always)",
+            label_2="AOF IO_Uring (appendfsync=always)",
             bar_1_color="blue",
             bar_2_color="red",
         )

@@ -54,8 +54,8 @@ if __name__ == "__main__":
             avg_redis_io_uring,
             count,
             graphs_dir,
-            label_1="Redis RDB",
-            label_2="Redis AOF (appendfsync=always)",
+            label_1="RDB",
+            label_2="AOF (appendfsync=always)",
             bar_1_color="green",
             bar_2_color="blue",
         )

@@ -105,8 +105,8 @@ if __name__ == "__main__":
             avg_syscalls_redis_aof,
             count,
             graphs_dir,
-            label_1="Redis RDB",
-            label_2="Redis AOF (appendfsync=always)",
+            label_1="RDB",
+            label_2="AOF (appendfsync=always)",
             bar_1_color="green",
             bar_2_color="blue",
         )
@@ -115,8 +115,8 @@ if __name__ == "__main__":
             avg_syscalls_times_redis_aof,
             count,
             graphs_dir,
-            label_1="Redis RDB",
-            label_2="Redis AOF (appendfsync=always)",
+            label_1="RDB",
+            label_2="AOF (appendfsync=always)",
             bar_1_color="green",
             bar_2_color="blue",
         )
