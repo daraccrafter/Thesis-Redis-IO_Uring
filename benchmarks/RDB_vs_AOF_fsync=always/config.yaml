@@ -1,0 +1,11 @@
+server1: redis
+server2: redis
+
+server1_data_dir: redis_aof
+server2_data_dir: redis_rdb
+
+server1_config: redisaof.conf
+server2_config: redisrdb.conf
+
+benchmark: RDB_vs_AOF_fsync=always
+benchmark_no: 3

@@ -2,17 +2,13 @@ import os
 import subprocess
 import sys
 import signal
-import time
 import argparse
 from datetime import datetime
+from benchmarks.benchmark_util import load_config
 
-benchmark_scripts_dir = "Benchmarks"
-
-redis_server_process = None
+redis_server_1 = None
 redis_io_uring_server_process = None
-redis_rdb_server_command = [
-    "./src/redis-server",
-]
+request_counts = [10000]
 
 
 def start_redis_server(command, cwd):
@@ -33,8 +29,8 @@ def stop_redis_server(process):
 
 def signal_handler(sig, frame):
     print("Interrupt received, shutting down servers...")
-    if redis_server_process:
-        stop_redis_server(redis_server_process)
+    if redis_server_1:
+        stop_redis_server(redis_server_1)
     if redis_io_uring_server_process:
         stop_redis_server(redis_io_uring_server_process)
     if result:
@@ -43,8 +39,23 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def run_benchmark_script(script, timestamp, iterations):
-    global redis_server_process, redis_io_uring_server_process, result
+def run_benchmark_script(script_path, timestamp, iterations):
+    global redis_server_1, redis_io_uring_server_process, result
+
+    script_dir = os.path.dirname(script_path)
+    config_path = os.path.join(script_dir, "config.yaml")
+    config = load_config(config_path)
+
+    server1 = config["server1"]
+    server2 = config["server2"]
+    server1_config = config["server1_config"]
+    server2_config = config["server2_config"]
+
+    server1_conf_path = os.path.join(script_dir, server1_config)
+    server2_conf_path = os.path.join(script_dir, server2_config)
+
+    redis_server_1_command = ["./src/redis-server", "../" + str(server1_conf_path)]
+    redis_server_2_command = ["./src/redis-server", "../" + str(server2_conf_path)]
 
     remove_appendonly = [
         "rm",
@@ -54,63 +65,30 @@ def run_benchmark_script(script, timestamp, iterations):
     ]
     subprocess.run(remove_appendonly, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    benchmark_number = script.split("_")[0]
-    redis_server_command = [
-        "./src/redis-server",
-        f"../Configs/redis/{benchmark_number}_redis.conf",
-    ]
-    redis_io_uring_server_command = [
-        "./src/redis-server",
-        f"../Configs/redis-io_uring/{benchmark_number}_redis.conf",
-    ]
+    redis_server_1 = start_redis_server(redis_server_1_command, cwd=server1)
+    redis_server_2 = start_redis_server(redis_server_2_command, cwd=server2)
 
-    redis_server_process = start_redis_server(redis_server_command, cwd="redis")
-    if benchmark_number == "0" or benchmark_number == "10":
-        redis_rdb_server_process = start_redis_server(
-            redis_rdb_server_command, cwd="redis"
-        )
-    else:
-        redis_io_uring_server_process = start_redis_server(
-            redis_io_uring_server_command, cwd="redis-io_uring"
-        )
-    time.sleep(3)
-
-    script_path = os.path.join(benchmark_scripts_dir, script)
     print(
         f"Running {script_path} with timestamp {timestamp} for {iterations} iterations..."
     )
-    if benchmark_number == "0" or benchmark_number == "10":
-        result = subprocess.run(
-            [
-                "python3",
-                script_path,
-                timestamp,
-                str(iterations),
-                str(redis_server_process.pid),
-                str(redis_rdb_server_process.pid),
-            ],
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-    else:
-        result = subprocess.run(
-            [
-                "python3",
-                script_path,
-                timestamp,
-                str(iterations),
-                str(redis_server_process.pid),
-                str(redis_io_uring_server_process.pid),
-            ],
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
+    result = subprocess.run(
+        [
+            "sudo",
+            "python3",
+            script_path,
+            timestamp,
+            str(iterations),
+            str(redis_server_1.pid),
+            str(redis_server_2.pid),
+            ",".join(map(str, request_counts)),
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
 
-    stop_redis_server(redis_server_process)
-    if benchmark_number == "0" or benchmark_number == "10":
-        stop_redis_server(redis_rdb_server_process)
-    else:
-        stop_redis_server(redis_io_uring_server_process)
+    stop_redis_server(redis_server_1)
+    stop_redis_server(redis_server_2)
+
     if result.returncode != 0:
         print(f"{script_path} failed with return code {result.returncode}")
         sys.exit(1)
@@ -120,33 +98,46 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
+def find_benchmark_scripts(path):
+    benchmark_scripts = []
+    if os.path.isfile(path) and path.endswith(".py"):
+        benchmark_scripts.append(path)
+    elif os.path.isdir(path):
+        for root, _, files in os.walk(path):
+            for file in files:
+                if file.endswith(".py"):
+                    benchmark_scripts.append(os.path.join(root, file))
+    return benchmark_scripts
+
+
 def main():
     try:
         parser = argparse.ArgumentParser(description="Run benchmark scripts.")
-        parser.add_argument("scripts", nargs="*", help="The benchmark scripts to run")
+        parser.add_argument(
+            "paths", nargs="*", help="Paths to benchmark scripts or directories"
+        )
         parser.add_argument(
             "--iterations",
             type=int,
             default=1,
             help="Number of times to run each benchmark script",
         )
+
         args = parser.parse_args()
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-        if args.scripts:
-            for script in args.scripts:
-                if script.startswith("Benchmarks/"):
-                    script = os.path.relpath(script, benchmark_scripts_dir)
-                script_name = os.path.basename(script)
-                run_benchmark_script(script_name, timestamp, args.iterations)
+        if not args.paths:
+            benchmark_scripts = find_benchmark_scripts("benchmarks")
         else:
-            benchmark_scripts = [
-                f for f in os.listdir(benchmark_scripts_dir) if f.endswith(".py")
-            ]
-            benchmark_scripts.sort() 
-            for script in benchmark_scripts:
-                run_benchmark_script(script, timestamp, args.iterations)
+            benchmark_scripts = []
+            for path in args.paths:
+                benchmark_scripts.extend(find_benchmark_scripts(path))
+
+        benchmark_scripts.sort()
+
+        for script in benchmark_scripts:
+            run_benchmark_script(script, timestamp, args.iterations)
     finally:
         print("All benchmark tests completed successfully.")
         sys.exit(0)

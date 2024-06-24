@@ -3,6 +3,7 @@
 num_calls_file="$2"
 times_file="$3"
 log_file="$4"
+pid="$1"
 touch "$num_calls_file"
 touch "$times_file"
 touch "$log_file"
@@ -10,7 +11,6 @@ touch "$log_file"
 handle_sigint() {
     sleep 1
     grep_output=$(echo "$strace_output" | grep -E 'write\([0-9]+, "\*|fdatasync|io_uring_enter')
-
     echo "$grep_output" >"$log_file"
 
     write_fds=$(echo "$grep_output" | grep 'write(' | awk -F'[()]' '{print $2}' | awk -F',' '{print $1}' | sort | uniq)
@@ -52,5 +52,5 @@ handle_sigint() {
 
 trap handle_sigint SIGINT SIGTERM
 
-strace_output=$(sudo strace -T -e trace=write,fdatasync,io_uring_enter -p "$1" 2>&1)
+strace_output=$(sudo strace -T -e trace=write,fdatasync,io_uring_enter -p "$pid" 2>&1)
 wait

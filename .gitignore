@@ -4,3 +4,4 @@
 !/csvs/redis-io_uring/.gitkeep
 redis-benchmark
 .vscode
+benchmarks/*/data

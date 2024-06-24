@@ -29,7 +29,8 @@ os.makedirs(output_dir_redis_io_uring, exist_ok=True)
 os.makedirs(graphs_dir, exist_ok=True)
 
 
-def run_benchmark(request_count, output_dir, port, iteration, pid):
+def run_benchmark(request_count, output_dir, port, iteration):
+    
     csv_filename = os.path.join(
         output_dir, f"{request_count}_numrequests_run{iteration}.csv"
     )

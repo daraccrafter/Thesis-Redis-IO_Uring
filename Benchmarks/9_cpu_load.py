@@ -7,7 +7,7 @@ import threading
 import subprocess
 
 benchmark = "9_cpu_load_fsync_always"
-request_counts = [100000]
+request_counts = [100]
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"
@@ -122,9 +122,9 @@ def plot_cpu_comparison(avg_redis, avg_redis_io_uring, request_count):
     redis_io_uring_values = [avg_redis_io_uring[0]]
 
     x = range(len(labels))
-    bar_width = 0.15
+    bar_width = 0.05
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 6))
 
     bar_positions_redis = [p - bar_width / 2 for p in x]
     bar_positions_io_uring = [p + bar_width / 2 for p in x]
@@ -162,7 +162,7 @@ def plot_memory_comparison(avg_redis, avg_redis_io_uring, request_count):
     redis_io_uring_values = [avg_redis_io_uring[1]]
 
     x = range(len(labels))
-    bar_width = 0.15
+    bar_width = 0.05
 
     plt.figure(figsize=(10, 6))
 
