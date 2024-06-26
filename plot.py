@@ -2,6 +2,53 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 import os
+
+
+def plot_boxplot(
+    df,
+    graphs_dir,
+    name="",
+    color="blue",
+    avg_color="black",  
+):
+    data = []
+    labels = []
+
+    for _, row in df.iterrows():
+        test_name = row["test"]
+        latencies = row[
+            [
+                "avg_latency_ms",
+                "min_latency_ms",
+                "p50_latency_ms",
+                "p95_latency_ms",
+                "p99_latency_ms",
+                "max_latency_ms",
+            ]
+        ].values
+        data.append(latencies)
+        labels.append(test_name)
+
+    plt.figure(figsize=(10, 6))
+    box = plt.boxplot(
+        data,
+        labels=labels,
+        patch_artist=True,
+        medianprops=dict(color=avg_color, linewidth=2.5),
+    )
+
+    for item in box["boxes"]:
+        item.set(color=color, linewidth=2)
+        item.set(facecolor=color)
+
+    plt.ylabel("Latency (ms)", fontsize=12)
+    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plot_filename = os.path.join(graphs_dir, f"{name}.svg")
+    plt.savefig(plot_filename, bbox_inches="tight", format="svg")
+    plt.close()
+
+
 def plot_syscalls_comparison(
     df_avg_1,
     df_avg_2,
@@ -239,10 +286,10 @@ def plot_rps_comparison(
     )
     plt.savefig(plot_filename, bbox_inches="tight",format='svg')
     plt.close()
-    
+
 if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Plot graphs from CSV data.")
-        parser.add_argument("--gt", help="Type of graph to plot. Options: syscall, syscalltime, rps, cpu, mem.")
+        parser.add_argument("--gt", help="Type of graph to plot. Options: syscall, syscalltime, rps, cpu, mem, perc")
         parser.add_argument("--csv1", help="Path to first CSV file.")
         parser.add_argument("--csv2", help="Path to second CSV file.")
         parser.add_argument("--dir", help="Directory to save graph.",default=".")
@@ -253,12 +300,19 @@ if __name__ == "__main__":
         parser.add_argument("--name", help="Name of the graph file.",default="")
         args = parser.parse_args()
         print("here")
-        df_avg_1 = pd.read_csv(args.csv1)
-        df_avg_2 = pd.read_csv(args.csv2)
+        if(args.gt == "perc"):
+            df = pd.read_csv(args.csv1)
+        else:
+            df_avg_1 = pd.read_csv(args.csv1)
+            df_avg_2 = pd.read_csv(args.csv2)
         if args.name == "":
-            csv1_name = os.path.splitext(os.path.basename(args.csv1))[0]
-            csv2_name = os.path.splitext(os.path.basename(args.csv2))[0]
-            args.name = f"{args.gt}_{csv1_name}_vs_{csv2_name}"
+            if(args.gt == "percentiles"):
+                csv1_name = os.path.splitext(os.path.basename(args.csv1))[0]
+                args.name= f"{args.gt}_{csv1_name}"
+            else:
+                csv1_name = os.path.splitext(os.path.basename(args.csv1))[0]
+                csv2_name = os.path.splitext(os.path.basename(args.csv2))[0]
+                args.name = f"{args.gt}_{csv1_name}_vs_{csv2_name}"
         if args.gt == "syscall":
             plot_syscalls_comparison(df_avg_1, df_avg_2, args.dir, args.l1, args.l2, args.c1, args.c2,args.name)
         elif args.gt == "syscalltime":
@@ -269,4 +323,6 @@ if __name__ == "__main__":
             plot_cpu_comparison(df_avg_1, df_avg_2, args.dir, args.l1, args.l2, args.c1, args.c2,args.name)
         elif args.gt == "mem":
             plot_memory_comparison(df_avg_1, df_avg_2, args.dir, args.l1, args.l2, args.c1, args.c2,args.name)
+        elif args.gt == "perc":
+            plot_boxplot(df, args.dir, args.name, args.c1)
         print(f"Saved plot at {args.dir}/{args.name}.svg")

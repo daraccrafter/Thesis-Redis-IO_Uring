@@ -23,6 +23,8 @@ redis_log_path = os.path.join(log_dir_path, "redis.log")
 csvs_dir_path = os.path.join(currdir, "csvs")
 os.makedirs(csvs_dir_path, exist_ok=True)
 os.makedirs(log_dir_path, exist_ok=True)
+tempdir = os.path.join(currdir, "temp")
+os.makedirs(tempdir, exist_ok=True)
 
 if len(sys.argv) != 3:
     print("Arg error")
@@ -32,14 +34,14 @@ iterations = int(sys.argv[1])
 request_counts = list(map(int, sys.argv[2].split(",")))
 
 if __name__ == "__main__":
-    kill_process_on_port(6379)
-    process = run_server("redis", config_path, redis_log_path)
-    r = redis.Redis(host="localhost", port=6379)
+    kill_process_on_port(6381)
+    process = run_server("redis", config_path, redis_log_path, 6381)
+    r = redis.Redis(host="localhost", port=6381)
     print("\tStrace")
     for i in range(1, iterations + 1):
         for count in request_counts:
             strace_proc = run_strace(process.pid, count, csvs_dir_path, log_dir_path, i)
-            run_benchmark(count, csvs_dir_path, 6379, i,"", False)
+            run_benchmark(count, csvs_dir_path, 6381, i, "", False)
             strace_proc.send_signal(signal.SIGINT)
             strace_proc.wait()
 

@@ -20,10 +20,10 @@ def make_requests(client, count):
 
 
 def verify_keys(client, total_keys, csvdir, logsdir):
-    chunk_size = total_keys // 100
+    chunk_size = total_keys // 300
     futures = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=300) as executor:
         for i in range(0, total_keys, chunk_size):
             future = executor.submit(check_keys_range, client, i + 1, i + chunk_size)
             futures.append(future)
@@ -107,9 +107,9 @@ def remove_appendonlydir(currdir):
     subprocess.run(rm_command, shell=True, check=True)
 
 
-def check_redis_connection(port):
+def check_redis_connection(port1):
     try:
-        r = redis.Redis(port=port)
+        r = redis.Redis(port=port1)
         r.ping()
 
         return True
@@ -121,7 +121,7 @@ def check_redis_connection(port):
         return False
 
 
-def run_server(implementation, configpath, logpath):
+def run_server(implementation, configpath, logpath,port):
     with open(logpath, "w") as logfile:
         command = [
             "./src/redis-server",
@@ -130,7 +130,7 @@ def run_server(implementation, configpath, logpath):
         process = subprocess.Popen(
             command, stdout=logfile, stderr=logfile, cwd=implementation
         )
-    while not check_redis_connection(6379):
+    while not check_redis_connection(port):
         time.sleep(0.1)
     return process
 

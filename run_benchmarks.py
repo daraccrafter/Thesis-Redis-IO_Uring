@@ -65,7 +65,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
         "URING_AOF": "red",
         "URING_AOF_SQPOLL": "purple",
     }
-
+    persistances = ["always", "everysec", "no"]
     # Define file patterns for each plot type
     file_patterns = {
         "cpu": "{fsync_type}{count}_avg_usage.csv",
@@ -73,8 +73,66 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
         "syscall": "{fsync_type}{count}_syscalls_avg.csv",
         "syscalltime": "{fsync_type}{count}_syscalls-times_avg.csv",
         "rps": "{fsync_type}{count}_avg.csv",
+        "percentiles": "{fsync_type}{count}_avg.csv",
     }
+    for count in request_counts:
+        for dir in dirnames:
+            dir1 = os.path.join(graphs_dir, f"{dir}")
+            os.makedirs(dir1, exist_ok=True)
+            if dir == "RDB":
+                fsync_type = ""
+                base_name = f"{count}"
 
+                csv = file_patterns["percentiles"].format(fsync_type="", count=count)
+                csv = os.path.join("benchmarks", dir, "csvs", csv)
+                print(f"ARGS {csv} {dir1} {colors[dir]} perc_{base_name}")
+                if os.path.exists(csv):
+                    subprocess.run(
+                        [
+                            "python3",
+                            "plot.py",
+                            "--gt",
+                            "perc",
+                            "--csv1",
+                            csv,
+                            "--dir",
+                            graphs_dir,
+                            "--c1",
+                            colors[dir],
+                            "--name",
+                            f"{dir}/perc_{base_name}",
+                        ],
+                        stdout=sys.stdout,
+                        stderr=sys.stderr,
+                    )
+            else:
+                for persist in persistances:
+                    base_name = f"{persist}_{count}"
+
+                    csv = file_patterns["percentiles"].format(
+                        fsync_type=persist + "_", count=count
+                    )
+                    csv = os.path.join("benchmarks", dir, "csvs", csv)
+                    print(f"ARGS {csv} {dir1} {colors[dir]} perc_{base_name}")
+                    if os.path.exists(csv):
+                        subprocess.run(
+                            [
+                                "python3",
+                                "plot.py",
+                                "--gt",
+                                "perc",
+                                "--csv1",
+                                csv,
+                                "--dir",
+                                graphs_dir,
+                                "--c1",
+                                colors[dir],
+                                "--name",
+                                f"{dir}/perc_{base_name}",
+                            ],
+                            stdout=sys.stdout,
+                            stderr=sys.stderr,
+                        )
     for count in request_counts:
         for comp in comparisons:
             dir1, dir2, fsync_type = comp
@@ -90,7 +148,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
             if dir1 not in dirnames or dir2 not in dirnames:
                 continue
             base_name = f"{dir1}_vs_{dir2}_{fsync_type}_{count}"
-            dir= os.path.join(graphs_dir, f"{dir1}_vs_{dir2}")
+            dir = os.path.join(graphs_dir, f"{dir1}_vs_{dir2}")
             os.makedirs(dir, exist_ok=True)
             for plot_type in plot_types:
                 csv1 = file_patterns[plot_type].format(
@@ -101,8 +159,6 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
                 )
                 csv1 = os.path.join("benchmarks", dir1, "csvs", csv1)
                 csv2 = os.path.join("benchmarks", dir2, "csvs", csv2)
-                print(f"csv1: {csv1}")
-                print(f"Plotting {plot_type} for {base_name}")
                 if os.path.exists(csv1) and os.path.exists(csv2):
                     subprocess.run(
                         [
@@ -130,7 +186,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
                     )
 
 
-def find_benchmark_scripts(path, passed = False):
+def find_benchmark_scripts(path, passed=False):
     benchmark_scripts = {}
     if os.path.isfile(path) and path.endswith(".py"):
         dirname = os.path.basename(os.path.dirname(path))
@@ -202,7 +258,6 @@ if __name__ == "__main__":
                 run_benchmark_script(script, args.iterations, request_counts)
 
         if args.plot:
-            print("Generating plots...")
             plot_comparisons("graphs", request_counts, sorted_directories)
     finally:
         print("All benchmark tests completed successfully.")
