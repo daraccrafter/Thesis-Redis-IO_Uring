@@ -1,2 +1,3 @@
-rm -rf graphs csvs logs
-rm -rf benchmarks/*/data
+rm -rf benchmarks/*/csvs
+rm -rf benchmarks/*/logs
+rm -rf graphs

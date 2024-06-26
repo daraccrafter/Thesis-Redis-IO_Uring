@@ -1,8 +1,0 @@
-server1: redis
-server2: redis-io_uring
-
-server1_config: redis.conf
-server2_config: redis_uring.conf
-
-benchmark: AOF_vs_URING_AOF_fsync=always
-benchmark_no: 1

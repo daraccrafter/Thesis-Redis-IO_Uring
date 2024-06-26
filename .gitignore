@@ -3,5 +3,8 @@
 !/csvs/redis/.gitkeep
 !/csvs/redis-io_uring/.gitkeep
 redis-benchmark
+redis-check-aof
 .vscode
 benchmarks/*/data
+/graphs/
+benchmark/__pycache__

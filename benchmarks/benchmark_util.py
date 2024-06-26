@@ -1,21 +1,143 @@
-# benchmark_utils.py
 import os
 import subprocess
 import pandas as pd
 import matplotlib.pyplot as plt
-import yaml
 import math
 import psutil
+import signal
+import redis
+import time
+import concurrent.futures
 
 base_csv_dir = "csvs"
 base_graphs_dir = "graphs"
 base_logs_dir = "logs"
 
 
-def load_config(config_path):
-    with open(config_path, "r") as file:
-        config = yaml.safe_load(file)
-    return config
+def make_requests(client, count):
+    for i in range(1, count + 1):
+        client.set(f"key_{i}", i)
+
+
+def verify_keys(client, total_keys, csvdir, logsdir):
+    chunk_size = total_keys // 100
+    futures = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        for i in range(0, total_keys, chunk_size):
+            future = executor.submit(check_keys_range, client, i + 1, i + chunk_size)
+            futures.append(future)
+
+    correct_keys = {}
+    incorrect_keys = {}
+
+    for future in concurrent.futures.as_completed(futures):
+        chunk_keys = future.result()
+        for key, value in chunk_keys.items():
+            if value == "Incorrect":
+                incorrect_keys[key] = value
+            else:
+                correct_keys[key] = value
+
+    sorted_correct_keys = dict(
+        sorted(correct_keys.items(), key=lambda item: int(item[1]))
+    )
+    sorted_incorrect_keys = dict(
+        sorted(incorrect_keys.items(), key=lambda item: int(item[0].split("_")[1]))
+    )
+
+    total = len(correct_keys) + len(incorrect_keys)
+    data = {
+        "Total": [total],
+        "Correct": [len(correct_keys)],
+        "Incorrect": [len(incorrect_keys)],
+    }
+
+    csvfile = os.path.join(csvdir, "data-integrity.csv")
+    pd.DataFrame(data).to_csv(csvfile, index=False)
+
+    logfile = os.path.join(logsdir, "data-integrity.log")
+    with open(logfile, "w") as f:
+        f.write("Correct Keys:\n")
+        for key, value in sorted_correct_keys.items():
+            f.write(f"{key}: {value}\n")
+
+        f.write("\nIncorrect Keys:\n")
+        for key, value in sorted_incorrect_keys.items():
+            f.write(f"{key}: {value}\n")
+
+    return sorted_incorrect_keys, sorted_correct_keys
+
+
+def check_keys_range(client, start_index, end_index):
+    keys = {}
+
+    for i in range(start_index, end_index + 1):
+        expected_value = i
+        actual_value = client.get(f"key_{i}")
+
+        if actual_value is None or int(actual_value) != expected_value:
+            keys[f"key_{i}"] = "Incorrect"
+        else:
+            keys[f"key_{i}"] = actual_value
+
+    return keys
+
+
+def find_aof_file_with_increment(currdir):
+    appendonlydir_path = os.path.join(currdir, "appendonlydir")
+    files = os.listdir(appendonlydir_path)
+
+    for file in files:
+        if f".incr." in file:
+            return os.path.join(currdir, "appendonlydir", file)
+
+    return None
+
+
+def check_aof_file(currdir,logdir):
+    command = ["./redis-check-aof", find_aof_file_with_increment(currdir)]
+    with open(os.path.join(logdir,"redis-aof-check.log"), "w") as f:
+        subprocess.run(command, check=True, stdout=f)
+
+
+def remove_appendonlydir(currdir):
+    appendonlydir_path = os.path.join(currdir, "appendonlydir")
+    rm_command = f"rm -rf {appendonlydir_path}"
+    subprocess.run(rm_command, shell=True, check=True)
+
+
+def check_redis_connection(port):
+    try:
+        r = redis.Redis(port=port)
+        r.ping()
+
+        return True
+
+    except redis.ConnectionError:
+        return False
+
+    except Exception as e:
+        return False
+
+
+def run_server(implementation, configpath, logpath):
+    with open(logpath, "w") as logfile:
+        command = [
+            "./src/redis-server",
+            configpath,
+        ]
+        process = subprocess.Popen(
+            command, stdout=logfile, stderr=logfile, cwd=implementation
+        )
+    while not check_redis_connection(6379):
+        time.sleep(0.1)
+    return process
+
+
+def stop_server(process):
+    process.send_signal(signal.SIGTERM)
+    process.wait()
 
 
 def monitor_process(pid, stop_event, cpu_usages, memory_usages):
@@ -53,16 +175,23 @@ def create_directories(
     )
 
 
-def run_strace(pid, request_count, syscalls_dir, logs_dir, iteration, persistance=""):
-    syscalls_filename = os.path.join(
-        syscalls_dir, f"{persistance}_syscalls_{request_count}_run{iteration}.csv"
-    )
-    syscall_times_filename = os.path.join(
-        syscalls_dir, f"{persistance}_syscalls_times_{request_count}_run{iteration}.csv"
-    )
-    log_filename = os.path.join(
-        logs_dir, f"{persistance}_syscall_{request_count}_run{iteration}.txt"
-    )
+def run_strace(pid, request_count, syscalls_dir, logs_dir, iteration, name=""):
+    if name != "":
+        syscalls_filename = os.path.join(
+            syscalls_dir, f"{name}_{request_count}_syscalls_run{iteration}.csv"
+        )
+        syscall_times_filename = os.path.join(
+            syscalls_dir, f"{name}_{request_count}_syscalls-times_run{iteration}.csv"
+        )
+        log_filename = os.path.join(logs_dir, f"{name}_strace_run{iteration}.txt")
+    else:
+        syscalls_filename = os.path.join(
+            syscalls_dir, f"{request_count}_syscalls_run{iteration}.csv"
+        )
+        syscall_times_filename = os.path.join(
+            syscalls_dir, f"{request_count}_syscalls-times_run{iteration}.csv"
+        )
+        log_filename = os.path.join(logs_dir, f"strace_run{iteration}.txt")
     command = [
         "sudo",
         "./strace-syscalls.sh",
@@ -77,12 +206,42 @@ def run_strace(pid, request_count, syscalls_dir, logs_dir, iteration, persistanc
     return process
 
 
+def kill_process_on_port(port):
+    find_process_command = f"lsof -t -i:{port}"
+    try:
+        process_ids = (
+            subprocess.check_output(find_process_command, shell=True)
+            .decode()
+            .strip()
+            .split("\n")
+        )
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 1:
+            return
+        else:
+            raise
+
+    for pid in process_ids:
+        if pid:
+            print(f"Killing process {pid} on port {port}")
+            kill_command = f"kill -9 {pid}"
+            subprocess.run(kill_command, shell=True)
+
+
 def run_benchmark(
-    request_count, output_dir, port, iteration, persistance="", save_csv=True
+    request_count,
+    output_dir,
+    port,
+    iteration,
+    name="",
+    save_csv=True,
 ):
-    csv_filename = os.path.join(
-        output_dir, f"{persistance}{request_count}_run{iteration}.csv"
-    )
+    if name != "":
+        csv_filename = os.path.join(
+            output_dir, f"{name}_{request_count}_run{iteration}.csv"
+        )
+    else:
+        csv_filename = os.path.join(output_dir, f"{request_count}_run{iteration}.csv")
     if save_csv:
         last_arg = "--csv"
     else:
@@ -92,7 +251,7 @@ def run_benchmark(
         "-p",
         str(port),
         "-t",
-        "set",
+        "set,lpush",
         "-n",
         str(request_count),
         last_arg,
@@ -101,9 +260,7 @@ def run_benchmark(
         with open(csv_filename, "w") as csvfile:
             subprocess.run(command, stdout=csvfile, check=True)
     else:
-        subprocess.run(
-            command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-        )
+        subprocess.run(command, stdout=subprocess.DEVNULL, check=True)
 
 
 def calc_avg_usages(
@@ -112,14 +269,22 @@ def calc_avg_usages(
     output_dir,
     request_count,
     iteration,
-    persistance="",
+    name="",
 ):
-    cpu_csv_filename = os.path.join(
-        output_dir, f"{persistance}_{request_count}_cpu_usage_run{iteration}.csv"
-    )
-    memory_csv_filename = os.path.join(
-        output_dir, f"{persistance}_{request_count}_memory_usage_run{iteration}.csv"
-    )
+    if name != "":
+        cpu_csv_filename = os.path.join(
+            output_dir, f"{name}_{request_count}_cpu_usage_run{iteration}.csv"
+        )
+        memory_csv_filename = os.path.join(
+            output_dir, f"{name}_{request_count}_memory_usage_run{iteration}.csv"
+        )
+    else:
+        cpu_csv_filename = os.path.join(
+            output_dir, f"{request_count}_cpu_usage_run{iteration}.csv"
+        )
+        memory_csv_filename = os.path.join(
+            output_dir, f"{request_count}_memory_usage_run{iteration}.csv"
+        )
     avg_cpu_usage = sum(cpu_usages) / len(cpu_usages)
     cpu_data = {"avg_cpu_usage": [avg_cpu_usage]}
     cpu_df = pd.DataFrame(cpu_data)
@@ -145,16 +310,24 @@ def average_rps_csv_files(output_dir, iterations, filename_pattern, avg_filename
     return df_avg
 
 
-def average_load_csv_files(request_count, output_dir, iterations, persistance=""):
+def average_load_csv_files(request_count, output_dir, iterations, name=""):
     cpu_usages = []
     memory_usages = []
     for i in range(1, iterations + 1):
-        cpu_csv_filename = os.path.join(
-            output_dir, f"{persistance}_{request_count}_cpu_usage_run{i}.csv"
-        )
-        memory_csv_filename = os.path.join(
-            output_dir, f"{persistance}_{request_count}_memory_usage_run{i}.csv"
-        )
+        if name != "":
+            cpu_csv_filename = os.path.join(
+                output_dir, f"{name}_{request_count}_cpu_usage_run{i}.csv"
+            )
+            memory_csv_filename = os.path.join(
+                output_dir, f"{name}_{request_count}_memory_usage_run{i}.csv"
+            )
+        else:
+            cpu_csv_filename = os.path.join(
+                output_dir, f"{request_count}_cpu_usage_run{i}.csv"
+            )
+            memory_csv_filename = os.path.join(
+                output_dir, f"{request_count}_memory_usage_run{i}.csv"
+            )
 
         if os.path.exists(cpu_csv_filename):
             cpu_df = pd.read_csv(cpu_csv_filename)
@@ -246,247 +419,3 @@ def average_syscalls_files(output_dir, iterations, filename_pattern, avg_filenam
     avg_csv_filename = os.path.join(output_dir, avg_filename)
     df_avg_syscalls.to_csv(avg_csv_filename, index=False)
     return df_avg_syscalls
-
-
-def plot_syscalls_comparison(
-    df_avg_1,
-    df_avg_2,
-    request_count,
-    graphs_dir,
-    label_1="Label 1",
-    label_2="Label 2",
-    bar_1_color="blue",
-    bar_2_color="red",
-    persistance="",
-):
-    labels = df_avg_1["syscall"]
-    syscalls_1 = df_avg_1["avg_count"]
-    syscalls_2 = df_avg_2["avg_count"]
-    x = range(len(labels))
-    bar_width = 0.35
-    plt.figure(figsize=(10, 6))
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
-        bar_positions_1,
-        syscalls_1,
-        width=bar_width,
-        label=label_1,
-        color=bar_1_color,
-    )
-    plt.bar(
-        bar_positions_2,
-        syscalls_2,
-        width=bar_width,
-        label=label_2,
-        color=bar_2_color,
-    )
-    plt.xlabel("Systemcall", fontsize=12)
-    plt.ylabel("Average number of calls", fontsize=12)
-    combined_positions = [
-        (bar_positions_1[i] + bar_positions_2[i]) / 2 for i in range(len(labels))
-    ]
-    plt.xticks(ticks=combined_positions, labels=labels, rotation=0)
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
-    plt.tight_layout()
-    plot_filename = os.path.join(
-        graphs_dir, f"{persistance}_{request_count}_syscall_count_comparison.png"
-    )
-    plt.savefig(plot_filename, bbox_inches="tight")
-    plt.close()
-
-
-def plot_cpu_comparison(
-    df_avg_1,
-    df_avg_2,
-    request_count,
-    graphs_dir,
-    label_1="Label 1",
-    label_2="Label 2",
-    bar_1_color="blue",
-    bar_2_color="red",
-    persistance="",
-):
-    labels = ["CPU Usage"]
-    cpu_1 = [df_avg_1[0]]
-    cpu_2 = [df_avg_2[0]]
-    x = range(len(labels))
-    bar_width = 0.35
-    plt.figure(figsize=(4, 6))
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
-        bar_positions_1,
-        cpu_1,
-        width=bar_width,
-        label=label_1,
-        color=bar_1_color,
-    )
-    plt.bar(
-        bar_positions_2,
-        cpu_2,
-        width=bar_width,
-        label=label_2,
-        color=bar_2_color,
-    )
-    plt.ylabel("Average CPU usage (%)", fontsize=12)
-
-    plt.xticks([])
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=1)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
-    plt.tight_layout()
-    plot_filename = os.path.join(
-        graphs_dir, f"{persistance}_{request_count}_cpu_comparison.png"
-    )
-    plt.savefig(plot_filename, bbox_inches="tight")
-    plt.close()
-
-
-def plot_memory_comparison(
-    df_avg_1,
-    df_avg_2,
-    request_count,
-    graphs_dir,
-    label_1="Label 1",
-    label_2="Label 2",
-    bar_1_color="blue",
-    bar_2_color="red",
-    persistance="",
-):
-    labels = ["Memory Usage"]
-    memory_1 = [df_avg_1[1]]
-    memory_2 = [df_avg_2[1]]
-
-    x = range(len(labels))
-    bar_width = 0.05
-
-    plt.figure(figsize=(4, 6))
-
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
-        bar_positions_1,
-        memory_1,
-        width=bar_width,
-        label=label_1,
-        color=bar_1_color,
-    )
-    plt.bar(
-        bar_positions_2,
-        memory_2,
-        width=bar_width,
-        label=label_2,
-        color=bar_2_color,
-    )
-
-    plt.xticks([])
-    plt.ylabel("Average memory usage (MB)", fontsize=12)
-
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=1)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
-    plt.tight_layout()
-
-    plot_filename = os.path.join(
-        graphs_dir, f"{persistance}_{request_count}_memory_comparison.png"
-    )
-    plt.savefig(plot_filename)
-    plt.close()
-
-
-def plot_syscall_times_comparison(
-    df_avg_1,
-    df_avg_2,
-    request_count,
-    graphs_dir,
-    label_1="Label 1",
-    label_2="Label 2",
-    bar_1_color="blue",
-    bar_2_color="red",
-    persistance="",
-):
-    labels = df_avg_1["syscall"]
-    syscalls_1 = df_avg_1["avg_time"]  # Keep in seconds
-    syscalls_2 = df_avg_2["avg_time"]  # Keep in seconds
-    x = range(len(labels))
-    bar_width = 0.35
-    plt.figure(figsize=(10, 6))
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
-        bar_positions_1,
-        syscalls_1,
-        width=bar_width,
-        label=label_1,
-        color=bar_1_color,
-    )
-    plt.bar(
-        bar_positions_2,
-        syscalls_2,
-        width=bar_width,
-        label=label_2,
-        color=bar_2_color,
-    )
-    plt.xlabel("Systemcall", fontsize=12)
-    plt.ylabel("Average latency [s]", fontsize=12)
-    plt.yscale("log")
-    combined_positions = [
-        (bar_positions_1[i] + bar_positions_2[i]) / 2 for i in range(len(labels))
-    ]
-    plt.xticks(ticks=combined_positions, labels=labels, rotation=0)
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
-    plt.tight_layout()
-    plot_filename = os.path.join(
-        graphs_dir, f"{persistance}_{request_count}_syscall_times_comparison.png"
-    )
-    plt.savefig(plot_filename, bbox_inches="tight")
-    plt.close()
-
-
-def plot_rps_comparison(
-    df_avg_1,
-    df_avg_2,
-    request_count,
-    graphs_dir,
-    label_1="Label 1",
-    label_2="Label 2",
-    bar_1_color="blue",
-    bar_2_color="red",
-):
-    labels = df_avg_1["test"]
-    rps_1 = df_avg_1["rps"]
-    rps_2 = df_avg_2["rps"]
-    x = range(len(labels))
-    bar_width = 0.35
-    plt.figure(figsize=(8, 6))
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
-        bar_positions_1,
-        rps_1,
-        width=bar_width,
-        label=label_1,
-        color=bar_1_color,
-    )
-    plt.bar(
-        bar_positions_2,
-        rps_2,
-        width=bar_width,
-        label=label_2,
-        color=bar_2_color,
-    )
-    plt.xlabel("Operation", fontsize=12)
-    plt.ylabel("Requests per second (RPS)", fontsize=12)
-    combined_positions = [
-        (bar_positions_1[i] + bar_positions_2[i]) / 2 for i in range(len(labels))
-    ]
-    plt.xticks(ticks=combined_positions, labels=labels, rotation=0)
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
-    plt.tight_layout()
-    plot_filename = os.path.join(
-        graphs_dir, f"{request_count}_numrequests_rps_comparison.png"
-    )
-    plt.savefig(plot_filename, bbox_inches="tight")
-    plt.close()
