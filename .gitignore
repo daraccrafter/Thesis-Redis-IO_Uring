@@ -1,10 +1,8 @@
-/csvs/redis/*
-/csvs/redis-io_uring/*
-!/csvs/redis/.gitkeep
-!/csvs/redis-io_uring/.gitkeep
 redis-benchmark
 redis-check-aof
 .vscode
-benchmarks/*/data
+benchmarks/*/logs
+benchmarks/*/csvs
+benchmarks/*/temp
 /graphs/
-benchmark/__pycache__
+benchmarks/__pycache__

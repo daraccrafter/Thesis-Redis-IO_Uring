@@ -66,6 +66,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
         "URING_AOF_SQPOLL": "purple",
     }
 
+    # Define file patterns for each plot type
     file_patterns = {
         "cpu": "{fsync_type}{count}_avg_usage.csv",
         "mem": "{fsync_type}{count}_avg_usage.csv",
@@ -89,7 +90,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
             if dir1 not in dirnames or dir2 not in dirnames:
                 continue
             base_name = f"{dir1}_vs_{dir2}_{fsync_type}_{count}"
-            dir = os.path.join(graphs_dir, f"{dir1}_vs_{dir2}")
+            dir= os.path.join(graphs_dir, f"{dir1}_vs_{dir2}")
             os.makedirs(dir, exist_ok=True)
             for plot_type in plot_types:
                 csv1 = file_patterns[plot_type].format(
@@ -129,7 +130,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
                     )
 
 
-def find_benchmark_scripts(path, passed=False):
+def find_benchmark_scripts(path, passed = False):
     benchmark_scripts = {}
     if os.path.isfile(path) and path.endswith(".py"):
         dirname = os.path.basename(os.path.dirname(path))
@@ -156,7 +157,7 @@ def find_benchmark_scripts(path, passed=False):
         if scripts:
             dir_name = os.path.basename(path)
             benchmark_scripts[dir_name] = scripts
-        return benchmark_scripts
+    return benchmark_scripts
 
 
 if __name__ == "__main__":
