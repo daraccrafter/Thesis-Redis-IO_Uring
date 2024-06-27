@@ -191,7 +191,7 @@ def run_strace(pid, request_count, syscalls_dir, logs_dir, iteration, name=""):
         syscall_times_filename = os.path.join(
             syscalls_dir, f"{request_count}_syscalls-times_run{iteration}.csv"
         )
-        log_filename = os.path.join(logs_dir, f"strace_run{iteration}.txt")
+        log_filename = os.path.join(logs_dir, f"{request_count}_strace_run{iteration}.txt")
     command = [
         "sudo",
         "./strace-syscalls.sh",
