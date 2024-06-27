@@ -1,53 +1,197 @@
 # Thesis-Redis-IO_Uring
 
-This repository contains the code and scripts for evaluating Redis with IO_uring for my thesis.The project includes the redis repository as a git submodule. Also it includes my implementation with io_uring as a git submodule (found here: https://github.com/daraccrafter/redis-io_uring/tree/unstable)
-
-## Scripts
-
-The benchmarking and data persistence test scripts are located in the `scripts` directory. Below is a detailed explanation of the main scripts and their functionalities.
-
-### Benchmarking Scripts
-
-- **`run_benchmarks.py`**: This script is designed to run benchmarks for different Redis modes and persistence configurations. It offers several command-line arguments for flexibility:
-  - `--iterations <arg>`: Specifies the number of iterations for each benchmark. The data generated from each run is averaged over all iterations.
-  - `--plot`: Generates comparison graphs for analysis, useful for inclusion in a thesis or report.
-
-  **Usage Examples**:
-  - To run benchmarks with 3 iterations and generate plots:
-    ```sh
-    python3 run_benchmarks.py --iterations 3 --plot
-    ```
-  - To run specific benchmark scripts located in the `benchmarks/AOF` directory and the `rps.py` script in the `benchmarks/URING_AOF` directory:
-    ```sh
-    python3 run_benchmarks.py --iterations 3 --plot benchmarks/AOF benchmarks/URING_AOF/rps.py
-    ```
-  - To run all benchmark scripts for a single iteration and generate plots:
-    ```sh
-    python3 run_benchmarks.py --plot
-    ```
-
-### Data and Logs
-
-- **Benchmark Data**: Each Redis configuration directory stores its respective benchmark data. For example, data for the AOF configuration is stored in `benchmarks/<config>/csvs`.
-- **Logs**: Logs from different Python scripts, including the latest Redis server logs, are stored in the same directories. For example, logs for the AOF configuration are found in `benchmarks/<config>/logs`.
-- **Temporary Directory**: The `temp` directory is used for the current Redis instance to generate the AOF file. This allows for manual inspection if needed.
+This repository contains the code and scripts for evaluating Redis with `io_uring` as part of my thesis. The project integrates the official [`redis`](https://github.com/redis/redis) repository as a git submodule. Additionally, it includes my custom implementation as a git submodule [`redis-io_uring`](https://github.com/daraccrafter/redis-io_uring/tree/unstable).
 
 ## Prerequisites
-Firstly make sure your kernel version is >= 5.4 to support liburing.
-## Installing Dependencies and building
-### Ubuntu
-If your on ubuntu you can just run ./setup.sh 
-### Manually installing dependencies
-Before you begin, ensure you have the following installed on your system:
+
+Before getting started, ensure your system meets the following requirements:
+
+- **Kernel Version**: Ensure your kernel version is >= 5.4 to support `liburing`.
+
+## Installing Dependencies and Building
+
+### Ubuntu & Debian-based
+
+Run the `./setup.sh` script. This script will:
+
+1. Pull both `redis` and `redis-io_uring` git submodules, if not already pulled.
+2. Install all necessary dependencies.
+3. Build both `redis` and `redis-io_uring`.
+
+Simply execute the following command in your terminal:
+
+```sh
+./setup.sh
+```
+
+### Manually Installing Dependencies
+
+If you prefer to install dependencies manually, ensure you have the following installed on your system:
 
 - `make`
 - `gcc`
 - `python3`
-- Python libraries: `pandas`, `psutil`, `matplotlib`, `redis`
-- `pip` (if installing)
+- Python libraries: `pandas`, `psutil`, `matplotlib`, `redis` (You can also install these with `pip3`)
 
-You can install the Python dependencies using pip:
+Follow these steps:
+
+1. **Pull Git Submodules**:
+
+   If you didn't pull the repository with `--recurse-submodules`, initialize and update the submodules:
+
+   ```sh
+   git submodule update --init --recursive
+   ```
+
+2. **Build Redis and Redis-IO_Uring**:
+
+   Navigate to the project root directory and run the following commands to build `redis` and `redis-io_uring`:
+
+   ```sh
+   make -C redis
+   make -C redis-io_uring
+   ```
+
+3. **Copy Redis Tools**:
+
+   Copy the `redis-benchmark` and `redis-check-aof` tools to the `scripts` directory:
+
+   ```sh
+   cp redis/src/redis-benchmark scripts/
+   cp redis/src/redis-check-aof scripts/
+   ```
+
+## Running Redis
+
+To run Redis, navigate to either the `redis` or `redis-io_uring` directory and execute the following command:
 
 ```sh
-pip install pandas psutil matplotlib redis
+./src/redis-server redis.conf
 ```
+
+### Configuration Options redis-io_uring
+
+Additional configuration options can be set in the `redis.conf` file. Here are the liburing configurations for append-only file operations:
+
+    appendonly-liburing yes
+    liburing-queue-depth xl
+    liburing-retry-count xl
+    liburing-sqpoll no
+
+### Running redis-benchmark
+
+To run the benchmark tests, use the `redis-benchmark` tool [here](https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/):
+
+```sh
+./src/redis-benchmark -t set,incr -n 500000 -q
+```
+
+This command will run benchmark tests for the set and incr operations with 500,000 requests, providing a quick summary of the results.
+
+## Scripts
+
+Below is a detailed explanation of the main scripts and their functionalities.
+
+
+- **`run_benchmarks.py`**: This script is designed to run benchmarks for different Redis modes and persistence configurations. It should be run with `sudo` because `strace` requires elevated privileges. It offers several command-line arguments for flexibility:
+
+  - `--iterations <arg>`: Specifies the number of iterations for each benchmark. The data generated from each run is averaged over all iterations.
+  - `--plot`: Generates comparison graphs for analysis, useful for inclusion in a thesis or report.
+  - `--request_counts <arg1>,<arg2>,...`: Specifies the number of requests for each benchmark test, as a comma-separated list (e.g., `1000,2000,3000`).
+
+  The workload for collecting metrics is generated by running:
+
+  ```sh
+  ./redis-benchmark -t set,incr -n {request_number}
+  ```
+
+  **Usage Examples**:
+
+  - To run benchmarks with 3 iterations and generate plots:
+    ```sh
+    sudo python3 run_benchmarks.py --iterations 3 --plot
+    ```
+  - To run specific benchmark scripts located in the `benchmarks/AOF` directory and the `rps.py` script in the `benchmarks/URING_AOF` directory:
+    ```sh
+    sudo python3 run_benchmarks.py --iterations 3 --plot benchmarks/AOF benchmarks/URING_AOF/rps.py
+    ```
+  - To run all benchmark scripts for a single iteration and generate plots:
+    ```sh
+    sudo python3 run_benchmarks.py --plot
+    ```
+  - To run benchmarks with specified request counts:
+    ```sh
+    sudo python3 run_benchmarks.py --request_counts 1000,2000,3000 --iterations 3 --plot
+    ```
+    **Data and Logs**:
+    - **Benchmark Data**: Each Redis configuration directory stores its respective benchmark data. For example, data for the AOF configuration is stored in `benchmarks/<config>/csvs`.
+    - **Logs**: Logs from different Python scripts, including the latest Redis server logs, are stored in the same directories. For example, logs for the AOF configuration are found in `benchmarks/<config>/logs`.
+    - **Temporary Directory**: The `temp` directory is used for the current Redis instance to generate the AOF file. This allows for manual inspection if needed.
+
+- **`plot.py`**: This script includes functionality for plotting comparisons between system calls, system call times, requests per second (RPS), CPU load, memory usage, and latency boxplots for different configurations.
+
+  **Arguments**:
+
+  - `--gt`: Type of graph to plot. Options: `syscall`, `syscalltime`, `rps`, `cpu`, `mem`, `perc`.
+  - `--csv1`: Path to the first CSV file.
+  - `--csv2`: Path to the second CSV file (not needed for `perc`).
+  - `--dir`: Directory to save the graph. Default is the current directory.
+  - `--l1`: Label for the first dataset. Default is "Label 1".
+  - `--l2`: Label for the second dataset. Default is "Label 2".
+  - `--c1`: Color for the first dataset bars. Default is "blue".
+  - `--c2`: Color for the second dataset bars. Default is "red".
+  - `--name`: Name of the graph file. Default is an autogenerated name based on the graph type and dataset names.
+
+  **Usage**:
+
+  - To plot system call comparisons:
+    ```sh
+    python3 plot.py --gt syscall --csv1 path/to/csv1.csv --csv2 path/to/csv2.csv --dir path/to/output --l1 Label1 --l2 Label2 --c1 blue --c2 red --name syscall_comparison
+    ```
+  - To plot system call time comparisons:
+    ```sh
+    python3 plot.py --gt syscalltime --csv1 path/to/csv1.csv --csv2 path/to/csv2.csv --dir path/to/output --l1 Label1 --l2 Label2 --c1 blue --c2 red --name syscalltime_comparison
+    ```
+  - To plot requests per second comparisons:
+    ```sh
+    python3 plot.py --gt rps --csv1 path/to/csv1.csv --csv2 path/to/csv2.csv --dir path/to/output --l1 Label1 --l2 Label2 --c1 blue --c2 red --name rps_comparison
+    ```
+  - To plot CPU usage comparisons:
+    ```sh
+    python3 plot.py --gt cpu --csv1 path/to/csv1.csv --csv2 path/to/csv2.csv --dir path/to/output --l1 Label1 --l2 Label2 --c1 blue --c2 red --name cpu_comparison
+    ```
+  - To plot memory usage comparisons:
+    ```sh
+    python3 plot.py --gt mem --csv1 path/to/csv1.csv --csv2 path/to/csv2.csv --dir path/to/output --l1 Label1 --l2 Label2 --c1 blue --c2 red --name memory_comparison
+    ```
+  - To plot latency percentiles boxplot:
+    ```sh
+    python3 plot.py --gt perc --csv1 path/to/csv1.csv --dir path/to/output --name latency_boxplot --c1 blue
+    ```   
+    **Example**:
+    To generate a system call comparison plot between two CSV files:
+    ```sh
+    python3 plot.py --gt syscall --csv1 benchmarks/AOF/csvs/syscalls_avg.csv --csv2 benchmarks/URING_AOF/csvs/syscalls_avg.csv --dir output --l1 AOF --l2 URING_AOF --c1 blue --c2 red --name syscall_comparison
+    ```
+
+### Data Persistence Test
+
+- **`data-persist-test.py`**: This script runs tests to set a specified number of request keys, restarts the server to rewrite its state from the AOF file, and then retrieves the data using the Redis library. After this, it runs an increment test that increments a key up to the request count, restarts the server, and checks if the key value is equal to the request count. This is a simple test, and due to time constraints, a more thorough test could not be written. Additionally, before reloading the AOF, the script runs `redis-check-aof` to check for corruption in the AOF file.
+
+  **Arguments**:
+
+  - `<requests>`: Specifies the number of requests to be tested (e.g., `1000`).
+
+  **Usage**:
+
+  - To run the data persistence test with 1000 requests:
+    ```sh
+    python3 data-persist-test.py 1000
+    ```
+
+  **Data**:
+
+  - The data generated by this script is saved under the `data-persistence` directory.
+
+    This script ensures that the Redis server can correctly recover its state from the AOF file after a restart, and that it maintains data integrity even after increment operations.
+
