@@ -4,7 +4,7 @@ import redis
 import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.util import (
+from util import (
     run_server,
     stop_server,
     run_benchmark,
