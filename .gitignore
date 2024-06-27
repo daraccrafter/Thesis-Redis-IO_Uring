@@ -1,8 +1,9 @@
-redis-benchmark
-redis-check-aof
+scripts/redis-benchmark
+scripts/redis-check-aof
 .vscode
-benchmarks/*/logs
-benchmarks/*/csvs
-benchmarks/*/temp
-/graphs/
-benchmarks/__pycache__
+scripts/benchmarks/*/logs
+scripts/benchmarks/*/csvs
+scripts/benchmarks/*/temp
+scripts/graphs
+scripts/benchmarks/__pycache__
+scripts/persistance-data
