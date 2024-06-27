@@ -3,6 +3,7 @@ import os
 import redis
 import concurrent.futures
 import time
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from benchmarks.util import (
     run_server,
@@ -14,7 +15,7 @@ from benchmarks.util import (
 )
 
 currdir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(currdir,"data-redis.conf")
+config_path = os.path.join(currdir, "data-redis.conf")
 log_dir_path = os.path.join(currdir, "persistance-data", "logs")
 redis_log_path = os.path.join("persistance-data", log_dir_path, "integrity_redis.log")
 csvs_dir_path = os.path.join(currdir, "persistance-data", "csvs")
@@ -28,6 +29,7 @@ if len(sys.argv) != 2:
     exit(1)
 
 request_count = int(sys.argv[1])
+
 
 def make_requests_test1(client, count):
     for i in range(1, count + 1):
