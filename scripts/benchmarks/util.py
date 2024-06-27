@@ -249,7 +249,7 @@ def run_benchmark(
         "-p",
         str(port),
         "-t",
-        "set,lpush",
+        "set,incr",
         "-n",
         str(request_count),
         last_arg,

@@ -47,7 +47,6 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
     comparisons = [
         ("RDB", "URING_AOF", "always"),
         ("AOF", "URING_AOF", "always"),
-        ("URING_AOF_SQPOLL", "URING_AOF", "always"),
         ("AOF", "URING_AOF", "everysec"),
         ("AOF", "URING_AOF", "no"),
         ("RDB", "AOF", "always"),
@@ -57,13 +56,11 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
         "RDB": "RDB",
         "AOF": "AOF",
         "URING_AOF": "URING AOF",
-        "URING_AOF_SQPOLL": "URING AOF SQPOLL",
     }
     colors = {
         "RDB": "green",
         "AOF": "blue",
         "URING_AOF": "red",
-        "URING_AOF_SQPOLL": "purple",
     }
     persistances = ["always", "everysec", "no"]
     # Define file patterns for each plot type
@@ -239,9 +236,16 @@ if __name__ == "__main__":
             action="store_true",
             help="Flag to generate plots after running benchmarks",
         )
+        parser.add_argument(
+            "--plotonly", 
+            action="store_true",
+            help="Flag to only generate plots",
+        )
         args = parser.parse_args()
         request_counts = list(map(int, args.requests.split(",")))
-
+        if args.plotonly:
+            plot_comparisons("graphs", request_counts, ["RDB", "AOF", "URING_AOF"])
+            sys.exit(0)
         benchmark_scripts = {}
         if not args.paths:
             benchmark_scripts.update(find_benchmark_scripts("benchmarks"))
