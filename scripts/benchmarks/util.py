@@ -308,16 +308,16 @@ def average_rps_csv_files(output_dir, iterations, filename_pattern, avg_filename
     return df_avg
 
 
-def average_load_csv_files(request_count, output_dir, iterations, name=""):
+def average_load_csv_files(request_count, output_dir, iterations, fsync=""):
     cpu_usages = []
     memory_usages = []
     for i in range(1, iterations + 1):
-        if name != "":
+        if fsync != "":
             cpu_csv_filename = os.path.join(
-                output_dir, f"{name}_{request_count}_cpu_usage_run{i}.csv"
+                output_dir, f"{fsync}_{request_count}_cpu_usage_run{i}.csv"
             )
             memory_csv_filename = os.path.join(
-                output_dir, f"{name}_{request_count}_memory_usage_run{i}.csv"
+                output_dir, f"{fsync}_{request_count}_memory_usage_run{i}.csv"
             )
         else:
             cpu_csv_filename = os.path.join(
@@ -337,8 +337,10 @@ def average_load_csv_files(request_count, output_dir, iterations, name=""):
 
     avg_cpu_usage = sum(cpu_usages) / len(cpu_usages)
     avg_memory_usage = sum(memory_usages) / len(memory_usages)
-
-    avg_csv_filename = os.path.join(output_dir, f"{request_count}_avg_usage.csv")
+    if fsync!="":
+        avg_csv_filename = os.path.join(output_dir, f"{fsync}_{request_count}_avg_usage.csv")
+    else:
+        avg_csv_filename = os.path.join(output_dir, f"{request_count}_avg_usage.csv")
     avg_data = {"avg_cpu_usage": [avg_cpu_usage], "avg_mem_usage": [avg_memory_usage]}
     avg_df = pd.DataFrame(avg_data)
     avg_df.to_csv(avg_csv_filename, index=False)

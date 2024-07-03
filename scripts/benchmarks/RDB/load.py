@@ -53,7 +53,6 @@ if __name__ == "__main__":
             calc_avg_usages(cpu_usages, memory_usages, csvs_dir_path, count, i)
 
     for count in request_counts:
-        filename_pattern = f"{count}_run{{iteration}}.csv"
         average_load_csv_files(count, csvs_dir_path, iterations)
 
     stop_server(process)

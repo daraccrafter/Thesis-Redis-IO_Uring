@@ -58,7 +58,6 @@ if __name__ == "__main__":
 
     for count in request_counts:
         for fsync in appendfsync_configs:
-            filename_pattern = f"{fsync}_{count}_run{{iteration}}.csv"
             average_load_csv_files(count, csvs_dir_path, iterations, fsync)
 
     stop_server(process)

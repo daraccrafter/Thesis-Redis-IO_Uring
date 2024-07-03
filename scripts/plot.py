@@ -97,6 +97,9 @@ def plot_syscalls_comparison(
     plt.close()
 
 
+import matplotlib.pyplot as plt
+import os
+
 def plot_cpu_comparison(
     df_avg_1,
     df_avg_2,
@@ -108,39 +111,37 @@ def plot_cpu_comparison(
     name="",
 ):
     labels = ["CPU Usage"]
-    cpu_1 = [df_avg_1[0]]
-    cpu_2 = [df_avg_2[0]]
-    x = range(len(labels))
-    bar_width = 0.35
-    plt.figure(figsize=(4, 6))
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
+    cpu_1 = df_avg_1['avg_cpu_usage']
+    cpu_2 = df_avg_2['avg_cpu_usage']
+    y = range(len(labels))
+    bar_height = 0.35
+    plt.figure(figsize=(6, 4))
+    bar_positions_1 = [p - bar_height / 2 for p in y]
+    bar_positions_2 = [p + bar_height / 2 for p in y]
+    plt.barh(
         bar_positions_1,
         cpu_1,
-        width=bar_width,
+        height=bar_height,
         label=label_1,
         color=bar_1_color,
     )
-    plt.bar(
+    plt.barh(
         bar_positions_2,
         cpu_2,
-        width=bar_width,
+        height=bar_height,
         label=label_2,
         color=bar_2_color,
     )
-    plt.ylabel("Average CPU usage (%)", fontsize=12)
-
-    plt.xticks([])
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=1)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
+    plt.xlabel("Average CPU usage (%)", fontsize=12)
+    plt.yticks([])
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
+    plt.grid(True, axis="x", linestyle="--", alpha=0.7)
     plt.tight_layout()
     plot_filename = os.path.join(
         graphs_dir, f"{name}.svg"
     )
-    plt.savefig(plot_filename, bbox_inches="tight",format='svg')
+    plt.savefig(plot_filename, bbox_inches="tight", format='svg')
     plt.close()
-
 
 def plot_memory_comparison(
     df_avg_1,
@@ -153,41 +154,41 @@ def plot_memory_comparison(
     name="",
 ):
     labels = ["Memory Usage"]
-    memory_1 = [df_avg_1[1]]
-    memory_2 = [df_avg_2[1]]
+    memory_1 = df_avg_1['avg_mem_usage']
+    memory_2 = df_avg_2['avg_mem_usage']
 
-    x = range(len(labels))
-    bar_width = 0.05
+    y = range(len(labels))
+    bar_height = 0.35
 
-    plt.figure(figsize=(4, 6))
+    plt.figure(figsize=(6, 4))
 
-    bar_positions_1 = [p - bar_width / 2 for p in x]
-    bar_positions_2 = [p + bar_width / 2 for p in x]
-    plt.bar(
+    bar_positions_1 = [p - bar_height / 2 for p in y]
+    bar_positions_2 = [p + bar_height / 2 for p in y]
+    plt.barh(
         bar_positions_1,
         memory_1,
-        width=bar_width,
+        height=bar_height,
         label=label_1,
         color=bar_1_color,
     )
-    plt.bar(
+    plt.barh(
         bar_positions_2,
         memory_2,
-        width=bar_width,
+        height=bar_height,
         label=label_2,
         color=bar_2_color,
     )
 
-    plt.xticks([])
-    plt.ylabel("Average memory usage (MB)", fontsize=12)
+    plt.xlabel("Average memory usage (MB)", fontsize=12)
+    plt.yticks([])
 
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=1)
-    plt.grid(True, axis="y", linestyle="--", alpha=0.7)
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
+    plt.grid(True, axis="x", linestyle="--", alpha=0.7)
     plt.tight_layout()
     plot_filename = os.path.join(
         graphs_dir, f"{name}.svg"
     )
-    plt.savefig(plot_filename, bbox_inches="tight",format='svg')
+    plt.savefig(plot_filename, bbox_inches="tight", format='svg')
     plt.close()
 
 
@@ -299,12 +300,12 @@ if __name__ == "__main__":
         parser.add_argument("--c2", help="Color for second dataset bars.",default="red")
         parser.add_argument("--name", help="Name of the graph file.",default="")
         args = parser.parse_args()
-        print("here")
         if(args.gt == "perc"):
             df = pd.read_csv(args.csv1)
         else:
             df_avg_1 = pd.read_csv(args.csv1)
             df_avg_2 = pd.read_csv(args.csv2)
+            print(f"{df_avg_1}")
         if args.name == "":
             if(args.gt == "percentiles"):
                 csv1_name = os.path.splitext(os.path.basename(args.csv1))[0]

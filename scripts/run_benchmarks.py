@@ -50,6 +50,8 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
         ("AOF", "URING_AOF", "everysec"),
         ("AOF", "URING_AOF", "no"),
         ("RDB", "AOF", "always"),
+        ("RDB", "AOF", "everysec"),
+        ("RDB", "AOF", "no"),
     ]
     plot_types = ["cpu", "mem", "syscall", "syscalltime", "rps"]
     labels = {
@@ -133,6 +135,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
     for count in request_counts:
         for comp in comparisons:
             dir1, dir2, fsync_type = comp
+            fsync_filename=fsync_type
             if dir1 == "RDB":
                 fsync_type2 = fsync_type + "_"
                 fsync_type = ""
@@ -144,7 +147,7 @@ def plot_comparisons(graphs_dir, request_counts, dirnames):
                 fsync_type = fsync_type + "_"
             if dir1 not in dirnames or dir2 not in dirnames:
                 continue
-            base_name = f"{dir1}_vs_{dir2}_{fsync_type}_{count}"
+            base_name = f"{dir1}_vs_{dir2}_{fsync_filename}_{count}"
             dir = os.path.join(graphs_dir, f"{dir1}_vs_{dir2}")
             os.makedirs(dir, exist_ok=True)
             for plot_type in plot_types:
