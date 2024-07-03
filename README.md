@@ -6,7 +6,7 @@ This repository contains the code and scripts for evaluating Redis with `io_urin
 
 Before getting started, ensure your system meets the following requirements:
 
-- **Kernel Version**: Ensure your kernel version is >= 5.4 to support `liburing`.
+- **Kernel Version**: Ensure your kernel version is >= 5.1 to support `liburing`.
 
 ## Installing Dependencies and Building
 
