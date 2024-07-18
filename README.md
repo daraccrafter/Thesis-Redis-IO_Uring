@@ -176,7 +176,7 @@ Below is a detailed explanation of the main scripts and their functionalities.
 
 ### Data Persistence Test
 
-- **`data-persist-test.py`**: This script runs tests to set a specified number of request keys, restarts the server to rewrite its state from the AOF file, and then retrieves the data using the Redis library. After this, it runs an increment test that increments a key up to the request count, restarts the server, and checks if the key value is equal to the request count. This is a simple test, and due to time constraints, a more thorough test could not be written. Additionally, before reloading the AOF, the script runs `redis-check-aof` to check for corruption in the AOF file.
+- **`data-persist-test.py`**: This script runs tests to set a specified number of request keys, restarts the server to rewrite its state from the AOF file, and then retrieves the data using the Redis library. After, Sets the same key for given request number of iterations, and checks if the key is equal to request number. After this, it runs an increment test that increments a key up to the request count, restarts the server, and checks if the key value is equal to the request count. This is a simple test, and due to time constraints, a more thorough test could not be written. Additionally, before reloading the AOF, the script runs `redis-check-aof` to check for corruption in the AOF file.
 
   **Arguments**:
 
