@@ -1,18 +1,20 @@
 import sys
 import os
 import redis
-import time
+import csv
+import threading
+import signal
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from util import (
     run_server,
     stop_server,
     run_benchmark,
-    average_rps_csv_files,
     kill_process_on_port,
+    monitor_process,
+    run_strace,
 )
 
-appendfsync_configs = ["always", "everysec", "no"]
 currdir = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(currdir, "redis.conf")
 log_dir_path = os.path.join(currdir, "logs")
@@ -23,27 +25,135 @@ os.makedirs(log_dir_path, exist_ok=True)
 tempdir = os.path.join(currdir, "temp")
 os.makedirs(tempdir, exist_ok=True)
 
-if len(sys.argv) != 3:
+if len(sys.argv) != 2:
     print("Arg error")
     exit(1)
 
-iterations = int(sys.argv[1])
-request_counts = list(map(int, sys.argv[2].split(",")))
+request_count = int(sys.argv[1])
+
+
+def consolidate_csv(
+    request_count, avg_cpu_usage, avg_memory_usage, consolidated_csv_writer
+):
+    csv_filename = os.path.join(csvs_dir_path, f"{request_count}.csv")
+    syscall_filename = os.path.join(csvs_dir_path, f"{request_count}_syscalls.csv")
+    syscall_times_filename = os.path.join(
+        csvs_dir_path, f"{request_count}_syscalls-times.csv"
+    )
+
+    with open(csv_filename, "r") as input_csv, open(
+        syscall_filename, "r"
+    ) as syscall_csv, open(syscall_times_filename, "r") as syscall_times_csv:
+
+        csv_reader = csv.reader(input_csv)
+        syscall_reader = csv.DictReader(syscall_csv)
+        syscall_times_reader = csv.DictReader(syscall_times_csv)
+
+        headers = next(csv_reader)
+
+        for row in csv_reader:
+            row_dict = dict(zip(headers, row))
+
+            # Reading syscall counts
+            syscall_counts = {
+                row["syscall"]: int(row["count"]) for row in syscall_reader
+            }
+            # Reading syscall times
+            syscall_times = {
+                row["syscall"]: row["time"] for row in syscall_times_reader
+            }
+
+            total_syscall_count = sum(syscall_counts.values())
+
+            row_dict.update(
+                {
+                    "CPU Usage": avg_cpu_usage,
+                    "Memory Usage": avg_memory_usage,
+                    "fdatasync_count": syscall_counts.get("fdatasync", 0),
+                    "write_count": syscall_counts.get("write", 0),
+                    "io_uring_enter_count": syscall_counts.get("io_uring_enter", 0),
+                    "write_time": syscall_times.get("write", 0),
+                    "fdatasync_time": syscall_times.get("fdatasync", 0),
+                    "io_uring_enter_time": syscall_times.get("io_uring_enter", 0),
+                    "total_time": syscall_times.get("total", 0),
+                    "total_syscall_count": total_syscall_count,
+                }
+            )
+
+            consolidated_csv_writer.writerow(row_dict)
+
+
+def run_all_tasks(r, process, request_count):
+    consolidated_csv_path = os.path.join(csvs_dir_path, "rdb_results.csv")
+    headers_written = False
+
+    with open(consolidated_csv_path, "w", newline="") as consolidated_csv:
+        csv_writer = None
+
+        # Run benchmark and save CSV
+        run_benchmark(request_count, csvs_dir_path, 6381, "")
+
+        # Load monitoring
+        cpu_usages, memory_usages = [], []
+        stop_event = threading.Event()
+        monitor_thread = threading.Thread(
+            target=monitor_process,
+            args=(process.pid, stop_event, cpu_usages, memory_usages),
+        )
+        monitor_thread.start()
+        run_benchmark(request_count, csvs_dir_path, 6381, "", "")
+        stop_event.set()
+        monitor_thread.join()
+        avg_cpu_usage = sum(cpu_usages) / len(cpu_usages) if cpu_usages else 0
+        avg_memory_usage = (
+            sum(memory_usages) / len(memory_usages) if memory_usages else 0
+        )
+
+        # Syscall monitoring
+        strace_proc = run_strace(
+            process.pid, request_count, csvs_dir_path, log_dir_path, ""
+        )
+        run_benchmark(request_count, csvs_dir_path, 6381, "", "")
+        strace_proc.send_signal(signal.SIGINT)
+        strace_proc.wait()
+
+        # Aggregate and consolidate results into a single CSV
+        if not headers_written:
+            csv_filename = os.path.join(csvs_dir_path, f"{request_count}.csv")
+            with open(csv_filename, "r") as input_csv:
+                headers = next(csv.reader(input_csv))
+                csv_writer = csv.DictWriter(
+                    consolidated_csv,
+                    fieldnames=headers
+                    + [
+                        "CPU Usage",
+                        "Memory Usage",
+                        "fdatasync_count",
+                        "write_count",
+                        "io_uring_enter_count",
+                        "write_time",
+                        "fdatasync_time",
+                        "io_uring_enter_time",
+                        "total_time",
+                        "total_syscall_count",
+                    ],
+                )
+                csv_writer.writeheader()
+                headers_written = True
+
+        consolidate_csv(request_count, avg_cpu_usage, avg_memory_usage, csv_writer)
+
+    os.remove(os.path.join(csvs_dir_path, f"{request_count}.csv"))
+    os.remove(os.path.join(csvs_dir_path, f"{request_count}_syscalls.csv"))
+    os.remove(os.path.join(csvs_dir_path, f"{request_count}_syscalls-times.csv"))
+
 
 if __name__ == "__main__":
     kill_process_on_port(6381)
     process = run_server("redis", config_path, redis_log_path, 6381)
     r = redis.Redis(host="localhost", port=6381)
-    print("\tBenchmark")
-    for i in range(1, iterations + 1):
-        for count in request_counts:
-            run_benchmark(count, csvs_dir_path, 6381, i)
 
-    for count in request_counts:
-        filename_pattern = f"{count}_run{{iteration}}.csv"
-        average_rps_csv_files(
-            csvs_dir_path, iterations, filename_pattern, f"{count}_avg.csv"
-        )
+    run_all_tasks(r, process, request_count)
 
     stop_server(process)
 

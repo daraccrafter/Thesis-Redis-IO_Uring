@@ -4,6 +4,7 @@ scripts/redis-check-aof
 scripts/benchmarks/*/logs
 scripts/benchmarks/*/csvs
 scripts/benchmarks/*/temp
+scripts/benchmarks/URING_AOF/temp-integrity
 scripts/graphs
 scripts/benchmarks/__pycache__
 scripts/persistance-data

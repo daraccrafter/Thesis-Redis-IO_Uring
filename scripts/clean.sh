@@ -1,5 +1,7 @@
-rm -rf scripts/benchmarks/*/csvs
-rm -rf scripts/benchmarks/*/logs
-rm -rf scripts/graphs
-rm -rf scripts/benchmarks/*/temp
-rm -rf scripts/persistance-data
+rm -rf benchmarks/*/csvs
+rm -rf benchmarks/*/logs
+rm -rf graphs
+rm -rf benchmarks/*/temp
+rm -rf benchmarks/URING_AOF/temp-integrity
+rm -rf persistance-data
+rm -rf benchmarks/__pycache__

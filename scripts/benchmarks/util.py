@@ -14,7 +14,6 @@ base_graphs_dir = "graphs"
 base_logs_dir = "logs"
 
 
-
 def verify_keys(client, total_keys, csvdir, logsdir):
     chunk_size = total_keys // 100
     futures = []
@@ -124,7 +123,7 @@ def run_server(implementation, configpath, logpath, port):
             configpath,
         ]
         process = subprocess.Popen(
-            command, stdout=logfile, stderr=logfile, cwd="../"+implementation
+            command, stdout=logfile, stderr=logfile, cwd="../" + implementation
         )
     while not check_redis_connection(port):
         time.sleep(0.1)
@@ -171,24 +170,24 @@ def create_directories(
     )
 
 
-def run_strace(pid, request_count, syscalls_dir, logs_dir, iteration, name=""):
+def run_strace(pid, request_count, syscalls_dir, logs_dir, name=""):
     if name != "":
         syscalls_filename = os.path.join(
-            syscalls_dir, f"{name}_{request_count}_syscalls_run{iteration}.csv"
+            syscalls_dir, f"{name}_{request_count}_syscalls.csv"
         )
         syscall_times_filename = os.path.join(
-            syscalls_dir, f"{name}_{request_count}_syscalls-times_run{iteration}.csv"
+            syscalls_dir, f"{name}_{request_count}_syscalls-times.csv"
         )
-        log_filename = os.path.join(logs_dir, f"{name}_strace_run{iteration}.txt")
+        log_filename = os.path.join(logs_dir, f"{name}_strace.txt")
     else:
         syscalls_filename = os.path.join(
-            syscalls_dir, f"{request_count}_syscalls_run{iteration}.csv"
+            syscalls_dir, f"{request_count}_syscalls.csv"
         )
         syscall_times_filename = os.path.join(
-            syscalls_dir, f"{request_count}_syscalls-times_run{iteration}.csv"
+            syscalls_dir, f"{request_count}_syscalls-times.csv"
         )
         log_filename = os.path.join(
-            logs_dir, f"{request_count}_strace_run{iteration}.txt"
+            logs_dir, f"{request_count}_strace.txt"
         )
     command = [
         "sudo",
@@ -230,16 +229,15 @@ def run_benchmark(
     request_count,
     output_dir,
     port,
-    iteration,
     name="",
     save_csv=True,
 ):
     if name != "":
         csv_filename = os.path.join(
-            output_dir, f"{name}_{request_count}_run{iteration}.csv"
+            output_dir, f"{name}_{request_count}.csv"
         )
     else:
-        csv_filename = os.path.join(output_dir, f"{request_count}_run{iteration}.csv")
+        csv_filename = os.path.join(output_dir, f"{request_count}.csv")
     if save_csv:
         last_arg = "--csv"
     else:
@@ -248,8 +246,10 @@ def run_benchmark(
         "./redis-benchmark",
         "-p",
         str(port),
+        "-c",
+        "50",
         "-t",
-        "set,incr",
+        "set",
         "-n",
         str(request_count),
         last_arg,
@@ -308,44 +308,6 @@ def average_rps_csv_files(output_dir, iterations, filename_pattern, avg_filename
     return df_avg
 
 
-def average_load_csv_files(request_count, output_dir, iterations, fsync=""):
-    cpu_usages = []
-    memory_usages = []
-    for i in range(1, iterations + 1):
-        if fsync != "":
-            cpu_csv_filename = os.path.join(
-                output_dir, f"{fsync}_{request_count}_cpu_usage_run{i}.csv"
-            )
-            memory_csv_filename = os.path.join(
-                output_dir, f"{fsync}_{request_count}_memory_usage_run{i}.csv"
-            )
-        else:
-            cpu_csv_filename = os.path.join(
-                output_dir, f"{request_count}_cpu_usage_run{i}.csv"
-            )
-            memory_csv_filename = os.path.join(
-                output_dir, f"{request_count}_memory_usage_run{i}.csv"
-            )
-
-        if os.path.exists(cpu_csv_filename):
-            cpu_df = pd.read_csv(cpu_csv_filename)
-            cpu_usages.append(cpu_df["avg_cpu_usage"].mean())
-
-        if os.path.exists(memory_csv_filename):
-            memory_df = pd.read_csv(memory_csv_filename)
-            memory_usages.append(memory_df["avg_mem_usage"].mean())
-
-    avg_cpu_usage = sum(cpu_usages) / len(cpu_usages)
-    avg_memory_usage = sum(memory_usages) / len(memory_usages)
-    if fsync!="":
-        avg_csv_filename = os.path.join(output_dir, f"{fsync}_{request_count}_avg_usage.csv")
-    else:
-        avg_csv_filename = os.path.join(output_dir, f"{request_count}_avg_usage.csv")
-    avg_data = {"avg_cpu_usage": [avg_cpu_usage], "avg_mem_usage": [avg_memory_usage]}
-    avg_df = pd.DataFrame(avg_data)
-    avg_df.to_csv(avg_csv_filename, index=False)
-
-    return avg_cpu_usage, avg_memory_usage
 
 
 def average_syscall_times_csv_files(
