@@ -77,5 +77,6 @@ if __name__ == "__main__":
     else:
         benchmarks_to_run = ["AOF", "RDB", "URING_AOF"]
 
+    subprocess.run(["sudo", "./clean-redis-persist.sh"], check=True) 
     run_benchmarks(args.requests, benchmarks_to_run)
     print("Benchmark test completed successfully.")

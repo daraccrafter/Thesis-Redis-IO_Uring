@@ -141,7 +141,9 @@ def run_all_tasks(r, process, request_count):
                 csv_writer.writeheader()
                 headers_written = True
 
-        consolidate_csv(request_count, avg_cpu_usage, avg_memory_usage, csv_writer)
+        consolidate_csv(
+            request_count, avg_cpu_usage, avg_memory_usage, csv_writer
+        )
 
     os.remove(os.path.join(csvs_dir_path, f"{request_count}.csv"))
     os.remove(os.path.join(csvs_dir_path, f"{request_count}_syscalls.csv"))

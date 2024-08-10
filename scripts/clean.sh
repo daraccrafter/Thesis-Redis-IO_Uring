@@ -5,3 +5,4 @@ rm -rf benchmarks/*/temp
 rm -rf benchmarks/URING_AOF/temp-integrity
 rm -rf persistance-data
 rm -rf benchmarks/__pycache__
+./clean-redis-persist.sh

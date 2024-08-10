@@ -120,7 +120,9 @@ def run_server(implementation, configpath, logpath, port):
     with open(logpath, "w") as logfile:
         command = [
             "./src/redis-server",
-            configpath,
+            "redis.conf",
+            "--port",
+            str(port),
         ]
         process = subprocess.Popen(
             command, stdout=logfile, stderr=logfile, cwd="../" + implementation
@@ -180,15 +182,11 @@ def run_strace(pid, request_count, syscalls_dir, logs_dir, name=""):
         )
         log_filename = os.path.join(logs_dir, f"{name}_strace.txt")
     else:
-        syscalls_filename = os.path.join(
-            syscalls_dir, f"{request_count}_syscalls.csv"
-        )
+        syscalls_filename = os.path.join(syscalls_dir, f"{request_count}_syscalls.csv")
         syscall_times_filename = os.path.join(
             syscalls_dir, f"{request_count}_syscalls-times.csv"
         )
-        log_filename = os.path.join(
-            logs_dir, f"{request_count}_strace.txt"
-        )
+        log_filename = os.path.join(logs_dir, f"{request_count}_strace.txt")
     command = [
         "sudo",
         "./strace-syscalls.sh",
@@ -223,6 +221,7 @@ def kill_process_on_port(port):
             print(f"Killing process {pid} on port {port}")
             kill_command = f"kill -9 {pid}"
             subprocess.run(kill_command, shell=True)
+            time.sleep(5)
 
 
 def run_benchmark(
@@ -233,9 +232,7 @@ def run_benchmark(
     save_csv=True,
 ):
     if name != "":
-        csv_filename = os.path.join(
-            output_dir, f"{name}_{request_count}.csv"
-        )
+        csv_filename = os.path.join(output_dir, f"{name}_{request_count}.csv")
     else:
         csv_filename = os.path.join(output_dir, f"{request_count}.csv")
     if save_csv:
@@ -252,6 +249,8 @@ def run_benchmark(
         "set",
         "-n",
         str(request_count),
+        "-r",
+        "2147483647",
         last_arg,
     ]
     if save_csv:
@@ -306,8 +305,6 @@ def average_rps_csv_files(output_dir, iterations, filename_pattern, avg_filename
     avg_csv_filename = os.path.join(output_dir, avg_filename)
     df_avg.to_csv(avg_csv_filename, index=False)
     return df_avg
-
-
 
 
 def average_syscall_times_csv_files(

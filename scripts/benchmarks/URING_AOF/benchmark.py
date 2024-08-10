@@ -4,6 +4,7 @@ import redis
 import csv
 import threading
 import signal
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from util import (
@@ -32,7 +33,7 @@ if len(sys.argv) != 2:
 request_count = int(sys.argv[1])
 
 
-def consolidate_csv(
+def  consolidate_csv(
     request_count, avg_cpu_usage, avg_memory_usage, consolidated_csv_writer
 ):
     csv_filename = os.path.join(csvs_dir_path, f"always_{request_count}.csv")
@@ -92,7 +93,7 @@ def run_all_tasks(r, process, request_count):
         csvs_dir_path, "consolidated_results_io_uring.csv"
     )
     headers_written = False
-
+    r.config_set("save", "")
     with open(consolidated_csv_path, "w", newline="") as consolidated_csv:
         csv_writer = None
 
@@ -142,12 +143,13 @@ def run_all_tasks(r, process, request_count):
                         "io_uring_enter_time",
                         "total_time",
                         "total_syscall_count",
-                    ],
+                        ],
                 )
                 csv_writer.writeheader()
                 headers_written = True
 
-        consolidate_csv(request_count, avg_cpu_usage, avg_memory_usage, csv_writer)
+        consolidate_csv(
+            request_count, avg_cpu_usage, avg_memory_usage, csv_writer )
 
     os.remove(os.path.join(csvs_dir_path, f"always_{request_count}.csv"))
     os.remove(os.path.join(csvs_dir_path, f"always_{request_count}_syscalls.csv"))
@@ -156,6 +158,7 @@ def run_all_tasks(r, process, request_count):
 
 if __name__ == "__main__":
     kill_process_on_port(6382)
+    time.sleep(3)
     process = run_server("redis-io_uring", config_path, redis_log_path, 6382)
     r = redis.Redis(host="localhost", port=6382)
 

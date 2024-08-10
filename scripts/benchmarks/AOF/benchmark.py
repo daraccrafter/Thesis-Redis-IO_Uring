@@ -33,7 +33,11 @@ request_count = int(sys.argv[1])
 
 
 def consolidate_csv(
-    fsync, request_count, avg_cpu_usage, avg_memory_usage, consolidated_csv_writer
+    fsync,
+    request_count,
+    avg_cpu_usage,
+    avg_memory_usage,
+    consolidated_csv_writer,
 ):
     csv_filename = os.path.join(csvs_dir_path, f"{fsync}_{request_count}.csv")
     syscall_filename = os.path.join(
@@ -86,6 +90,8 @@ def consolidate_csv(
 def run_all_tasks(r, process, request_count):
     consolidated_csv_path = os.path.join(csvs_dir_path, "aof_results.csv")
     headers_written = False
+    r.config_set("appendonly", "yes")
+    r.config_set("save", "")
 
     with open(consolidated_csv_path, "w", newline="") as consolidated_csv:
         csv_writer = None
@@ -93,7 +99,6 @@ def run_all_tasks(r, process, request_count):
         for fsync in ["always", "everysec", "no"]:
             r.config_set("appendfsync", fsync)
             run_benchmark(request_count, csvs_dir_path, 6380, fsync)
-
             cpu_usages, memory_usages = [], []
             stop_event = threading.Event()
             monitor_thread = threading.Thread(
@@ -144,14 +149,16 @@ def run_all_tasks(r, process, request_count):
                     headers_written = True
 
             consolidate_csv(
-                fsync, request_count, avg_cpu_usage, avg_memory_usage, csv_writer
+                fsync,
+                request_count,
+                avg_cpu_usage,
+                avg_memory_usage,
+                csv_writer,
             )
 
     for fsync in ["always", "everysec", "no"]:
         os.remove(os.path.join(csvs_dir_path, f"{fsync}_{request_count}.csv"))
-        os.remove(
-            os.path.join(csvs_dir_path, f"{fsync}_{request_count}_syscalls.csv")
-        )
+        os.remove(os.path.join(csvs_dir_path, f"{fsync}_{request_count}_syscalls.csv"))
         os.remove(
             os.path.join(csvs_dir_path, f"{fsync}_{request_count}_syscalls-times.csv")
         )
