@@ -51,9 +51,9 @@ def log_time(benchmark_name, duration):
 
 
 def run_all_tasks(r, process, request_count, fsync_modes):
-    total_start_time = time.time() 
+    total_start_time = time.time()
     r.config_set("save", "")
-
+    r.config_set("appendonly", "yes")
     for fsync in fsync_modes:
         r.config_set("appendfsync", fsync)
         time.sleep(1)
