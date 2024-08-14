@@ -4,7 +4,7 @@ import redis
 import csv
 import threading
 import signal
-
+import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from util import (
     run_server,
@@ -90,14 +90,17 @@ def consolidate_csv(
 def run_all_tasks(r, process, request_count):
     consolidated_csv_path = os.path.join(csvs_dir_path, "aof_results.csv")
     headers_written = False
-    r.config_set("appendonly", "yes")
     r.config_set("save", "")
 
     with open(consolidated_csv_path, "w", newline="") as consolidated_csv:
         csv_writer = None
 
-        for fsync in ["always", "everysec", "no"]:
-            r.config_set("appendfsync", fsync)
+        for fsync in ["everysec", "no"]:
+            if(fsync != "everysec"):
+                r.config_set("appendfsync", fsync)
+            time.sleep(1)
+            config = r.config_get("appendfsync")
+            print(f"appendfsync: {config['appendfsync']}")
             run_benchmark(request_count, csvs_dir_path, 6380, fsync)
             cpu_usages, memory_usages = [], []
             stop_event = threading.Event()
@@ -156,7 +159,7 @@ def run_all_tasks(r, process, request_count):
                 csv_writer,
             )
 
-    for fsync in ["always", "everysec", "no"]:
+    for fsync in ["everysec", "no"]:
         os.remove(os.path.join(csvs_dir_path, f"{fsync}_{request_count}.csv"))
         os.remove(os.path.join(csvs_dir_path, f"{fsync}_{request_count}_syscalls.csv"))
         os.remove(
