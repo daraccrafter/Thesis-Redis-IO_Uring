@@ -57,7 +57,7 @@ async def set_diffkeys(redis_client, start_key, end_key, value_prefix="value"):
                 bgrewriteaof_triggered = True
 
             if i % 10000 == 0:
-                print(f"\tSuccessfully set key {key} with value {value}")
+                print(f"\tSET command executed {i} times")
         except Exception as e:
             print(f"\tFailed to set key {key}: {e}")
 
@@ -95,29 +95,42 @@ async def set_samekey_diffvalue(redis_client, start_key, end_key):
                 bgrewriteaof_triggered = True
 
             if i % 10000 == 0:
-                print(f"\SET command executed {i} times")
+                print(f"\tSET command executed {i} times")
         except Exception as e:
             print(f"\tFailed to execute SET for key {key}, value {i}: {e}")
 
 
 async def verify_keys(redis_client, start_key, end_key, expected_value_prefix="value"):
     success = True
+    logs = []
     for i in range(start_key, end_key + 1):
         key = f"key_{i}"
         try:
             expected_value = f"{expected_value_prefix}_{i}"
             value = await redis_client.get(key)
             if value is None:
+                log = f"{key},{expected_value},MISSING"
                 print(f"Key {key} is missing!")
                 success = False
             elif value.decode() != expected_value:
+                log = f"{key},{expected_value},{value.decode()}"
                 print(
                     f"Key {key} has incorrect value: {value.decode()} (expected: {expected_value})"
                 )
                 success = False
+            else:
+                log = f"{key},{expected_value},{value.decode()}"
+            logs.append(log)
         except Exception as e:
+            log = f"{key},{expected_value},ERROR:{e}"
             print(f"Failed to verify key {key}: {e}")
             success = False
+            logs.append(log)
+
+    with open("verify_keys_log.csv", "w") as file:
+        file.write("Key,Expected Value,Actual Value\n")
+        for log in logs:
+            file.write(log + "\n")
 
     if success:
         print(f"Successfully verified keys from {start_key} to {end_key}.")
@@ -127,14 +140,19 @@ async def verify_incr(redis_client, expected_value):
     key = "incr_key"
     try:
         value = await redis_client.get(key)
-        if value is None:
-            print(f"Key {key} is missing!")
-        elif int(value) != expected_value:
-            print(
-                f"Key {key} has incorrect value: {value.decode()} (expected: {expected_value})"
-            )
-        else:
-            print(f"INCR key verified successfully with value {value.decode()}.")
+        with open("verify_incr_log.csv", "w") as file:
+            file.write("Key,Expected Value,Actual Value\n")
+            if value is None:
+                file.write(f"{key},{expected_value},MISSING\n")
+                print(f"Key {key} is missing!")
+            elif int(value) != expected_value:
+                file.write(f"{key},{expected_value},{value.decode()}\n")
+                print(
+                    f"Key {key} has incorrect value: {value.decode()} (expected: {expected_value})"
+                )
+            else:
+                file.write(f"{key},{expected_value},{value.decode()}\n")
+                print(f"INCR key verified successfully with value {value.decode()}.")
     except Exception as e:
         print(f"Failed to verify key {key}: {e}")
 
@@ -143,26 +161,29 @@ async def verify_samekey_diffvalue(redis_client, end_key):
     key = "key"
     try:
         value = await redis_client.get(key)
-        if value is None:
-            print(f"Key {key} is missing!")
-        elif int(value) != end_key:
-            print(
-                f"Key {key} has incorrect value: {value.decode()} (expected: {end_key})"
-            )
-        else:
-            print(f"SET key verified successfully with value {value.decode()}.")
+        with open("verify_samekey_log.csv", "w") as file:
+            file.write("Key,Expected Value,Actual Value\n")
+            if value is None:
+                file.write(f"{key},{end_key},MISSING\n")
+                print(f"Key {key} is missing!")
+            elif int(value) != end_key:
+                file.write(f"{key},{end_key},{value.decode()}\n")
+                print(
+                    f"Key {key} has incorrect value: {value.decode()} (expected: {end_key})"
+                )
+            else:
+                file.write(f"{key},{end_key},{value.decode()}\n")
+                print(f"SET key verified successfully with value {value.decode()}.")
     except Exception as e:
-        print(f"Failed to verify key {key}, value {value}: {e}")
+        print(f"Failed to verify key {key}: {e}")
 
 
 async def run_test_suite(requests):
-    redis_server_cmd = ["src/redis-server", "redis.conf"]
-
     try:
         subprocess.run(["rm", "-rf", "appendonlydir"], cwd="../redis-io_uring")
-        redis_process = start_redis_server(6380, cwd="../redis-io_uring")
+        redis_process = start_redis_server(6385, cwd="../redis-io_uring")
 
-        redis_client = redis.from_url("redis://localhost:6380")
+        redis_client = redis.from_url("redis://localhost:6385")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
 
@@ -174,8 +195,8 @@ async def run_test_suite(requests):
         print(f"\tTime taken: {end_time - start_time} seconds")
         await verify_keys(redis_client, 1, requests)
         stop_redis_server(redis_process)
-        redis_process = start_redis_server(6381, cwd="../redis-io_uring")
-        redis_client = redis.from_url("redis://localhost:6381")
+        redis_process = start_redis_server(6386, cwd="../redis-io_uring")
+        redis_client = redis.from_url("redis://localhost:6386")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
 
@@ -189,8 +210,8 @@ async def run_test_suite(requests):
 
         stop_redis_server(redis_process)
 
-        redis_process = start_redis_server(6382, cwd="../redis-io_uring")
-        redis_client = redis.from_url("redis://localhost:6382")
+        redis_process = start_redis_server(6387, cwd="../redis-io_uring")
+        redis_client = redis.from_url("redis://localhost:6387")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
         print("#### Starting Test 3: Setting same keys with incrementing values")

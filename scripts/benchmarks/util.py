@@ -150,6 +150,33 @@ def monitor_process(pid, stop_event, cpu_usages, memory_usages):
         print(f"Process {pid} not found")
 
 
+import numpy as np
+
+
+def measure_idle_cpu_usage(pid, duration=5):
+    idle_cpu_usages = []
+    end_time = time.time() + duration
+
+    try:
+        p = psutil.Process(pid)
+        while time.time() < end_time:
+            with p.oneshot():
+                cpu_percent = p.cpu_percent(
+                    interval=1
+                )  # Get CPU usage for the specific process
+                idle_cpu_usages.append(cpu_percent)
+                print(f"Measured idle CPU usage for PID {pid}: {cpu_percent}%")
+
+        average_idle_cpu = np.mean(idle_cpu_usages) if idle_cpu_usages else 0
+        print(
+            f"Average idle CPU usage for PID {pid} before benchmark: {average_idle_cpu:.2f}%"
+        )
+        return average_idle_cpu
+    except psutil.NoSuchProcess:
+        print(f"Process with PID {pid} not found.")
+        return 0
+
+
 def create_directories(
     script_dir, timestamp, server1="redis", server2="redis-io_uring"
 ):
@@ -174,19 +201,13 @@ def create_directories(
 
 def run_strace(pid, request_count, syscalls_dir, logs_dir, name=""):
     if name != "":
-        syscalls_filename = os.path.join(
-            syscalls_dir, f"{name}_{request_count}_syscalls.csv"
-        )
-        syscall_times_filename = os.path.join(
-            syscalls_dir, f"{name}_{request_count}_syscalls-times.csv"
-        )
+        syscalls_filename = os.path.join(syscalls_dir, f"{name}_syscalls.csv")
+        syscall_times_filename = os.path.join(syscalls_dir, f"{name}_syscalls_times.csv")
         log_filename = os.path.join(logs_dir, f"{name}_strace.txt")
     else:
-        syscalls_filename = os.path.join(syscalls_dir, f"{request_count}_syscalls.csv")
-        syscall_times_filename = os.path.join(
-            syscalls_dir, f"{request_count}_syscalls-times.csv"
-        )
-        log_filename = os.path.join(logs_dir, f"{request_count}_strace.txt")
+        syscalls_filename = os.path.join(syscalls_dir, f"syscalls.csv")
+        syscall_times_filename = os.path.join(syscalls_dir, f"syscalls_times.csv")
+        log_filename = os.path.join(logs_dir, "strace.txt")
     command = [
         "sudo",
         "./strace-syscalls.sh",
@@ -225,20 +246,18 @@ def kill_process_on_port(port):
 
 
 def run_benchmark(
-    request_count,
-    output_dir,
-    port,
-    name="",
-    save_csv=True,
+    request_count, output_dir, port, name="", save_csv=True, typebench=""
 ):
     if name != "":
-        csv_filename = os.path.join(output_dir, f"{name}_{request_count}.csv")
+        csv_filename = os.path.join(output_dir, f"{name}_performance.csv")
     else:
-        csv_filename = os.path.join(output_dir, f"{request_count}.csv")
+        csv_filename = os.path.join(output_dir, f"performance.csv")
+
     if save_csv:
         last_arg = "--csv"
     else:
         last_arg = "-q"
+
     command = [
         "./redis-benchmark",
         "-p",
@@ -246,18 +265,36 @@ def run_benchmark(
         "-c",
         "50",
         "-t",
-        "set",
+        "set,lpush,sadd,incr",
         "-n",
-        str(request_count),
-        "-r",
-        "2147483647",
+        str(request_count // 4),
         last_arg,
     ]
+
+    print(f"Running {typebench} for {request_count} requests")
+
     if save_csv:
         with open(csv_filename, "w") as csvfile:
-            subprocess.run(command, stdout=csvfile, check=True)
+            process = subprocess.Popen(command, stdout=csvfile, stderr=subprocess.PIPE)
     else:
-        subprocess.run(command, stdout=subprocess.DEVNULL, check=True)
+        process = subprocess.Popen(
+            command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+        )
+
+    try:
+        while process.poll() is None:
+            print("\tBenchmark is still running...")
+            time.sleep(20)
+    except KeyboardInterrupt:
+        process.terminate()
+        print("Benchmark was terminated by user.")
+
+    process.wait()
+
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, command)
+
+    print("Benchmark completed successfully.")
 
 
 def calc_avg_usages(

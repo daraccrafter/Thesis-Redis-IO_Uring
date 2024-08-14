@@ -11,7 +11,7 @@ touch "$log_file"
 handle_sigint() {
     echo "SIGINT received. Processing and generating reports..."
     sleep 1
-
+    strace_output=$(echo "$strace_output" | grep -E 'write\([0-9]+, "\*|fdatasync|io_uring_enter')
     echo "$strace_output" >"$log_file"
 
     pids=$(echo "$strace_output" | grep -oP '\[pid \K[0-9]+<[^>]+>' | sort | uniq)
