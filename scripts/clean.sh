@@ -10,3 +10,6 @@ rm -rf benchmarks/__pycache__
 rm -f verify_incr_log.csv
 rm -f verify_keys_log.csv
 rm -f verify_samekey_log.csv
+rm -f norw_verify_incr_log.csv
+rm -f norw_verify_keys_log.csv
+rm -f norw_verify_samekey_log.csv

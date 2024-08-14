@@ -5,6 +5,9 @@ import signal
 import time
 import random
 import argparse
+import os
+
+name = ""
 
 
 def start_redis_server(port, cwd):
@@ -42,7 +45,13 @@ async def monitor_redis_logs(process, start_time):
             return end_time
 
 
-async def set_diffkeys(redis_client, start_key, end_key, value_prefix="value"):
+async def set_diffkeys(
+    redis_client,
+    start_key,
+    end_key,
+    trigger_bgrewriteaof=True,
+    value_prefix="value",
+):
     bgrewriteaof_triggered = False
     random_trigger_point = random.randint(start_key, end_key)
 
@@ -51,7 +60,11 @@ async def set_diffkeys(redis_client, start_key, end_key, value_prefix="value"):
         try:
             value = f"{value_prefix}_{i}"
             await redis_client.set(key, value)
-            if not bgrewriteaof_triggered and i == random_trigger_point:
+            if (
+                trigger_bgrewriteaof
+                and not bgrewriteaof_triggered
+                and i == random_trigger_point
+            ):
                 print(f"\tTriggering random BGREWRITEAOF after {i} requests")
                 await redis_client.bgrewriteaof()
                 bgrewriteaof_triggered = True
@@ -62,7 +75,9 @@ async def set_diffkeys(redis_client, start_key, end_key, value_prefix="value"):
             print(f"\tFailed to set key {key}: {e}")
 
 
-async def set_incr_commands(redis_client, start_key, end_key):
+async def set_incr_commands(
+    redis_client, start_key, end_key, trigger_bgrewriteaof=True
+):
     bgrewriteaof_triggered = False
     random_trigger_point = random.randint(start_key, end_key)
 
@@ -70,7 +85,11 @@ async def set_incr_commands(redis_client, start_key, end_key):
         key = "incr_key"
         try:
             await redis_client.incr(key)
-            if not bgrewriteaof_triggered and i == random_trigger_point:
+            if (
+                trigger_bgrewriteaof
+                and not bgrewriteaof_triggered
+                and i == random_trigger_point
+            ):
                 print(f"\tTriggering random BGREWRITEAOF after {i} requests")
                 await redis_client.bgrewriteaof()
                 bgrewriteaof_triggered = True
@@ -81,7 +100,9 @@ async def set_incr_commands(redis_client, start_key, end_key):
             print(f"\tFailed to execute INCR for key {key}: {e}")
 
 
-async def set_samekey_diffvalue(redis_client, start_key, end_key):
+async def set_samekey_diffvalue(
+    redis_client, start_key, end_key, trigger_bgrewriteaof=True
+):
     bgrewriteaof_triggered = False
     random_trigger_point = random.randint(start_key, end_key)
 
@@ -89,7 +110,11 @@ async def set_samekey_diffvalue(redis_client, start_key, end_key):
         key = f"key"
         try:
             await redis_client.set(key, i)
-            if not bgrewriteaof_triggered and i == random_trigger_point:
+            if (
+                trigger_bgrewriteaof
+                and not bgrewriteaof_triggered
+                and i == random_trigger_point
+            ):
                 print(f"\tTriggering random BGREWRITEAOF after {i} requests")
                 await redis_client.bgrewriteaof()
                 bgrewriteaof_triggered = True
@@ -127,7 +152,7 @@ async def verify_keys(redis_client, start_key, end_key, expected_value_prefix="v
             success = False
             logs.append(log)
 
-    with open("verify_keys_log.csv", "w") as file:
+    with open(f"{name}verify_keys_log.csv", "w") as file:
         file.write("Key,Expected Value,Actual Value\n")
         for log in logs:
             file.write(log + "\n")
@@ -140,7 +165,7 @@ async def verify_incr(redis_client, expected_value):
     key = "incr_key"
     try:
         value = await redis_client.get(key)
-        with open("verify_incr_log.csv", "w") as file:
+        with open(f"{name}verify_incr_log.csv", "w") as file:
             file.write("Key,Expected Value,Actual Value\n")
             if value is None:
                 file.write(f"{key},{expected_value},MISSING\n")
@@ -161,7 +186,7 @@ async def verify_samekey_diffvalue(redis_client, end_key):
     key = "key"
     try:
         value = await redis_client.get(key)
-        with open("verify_samekey_log.csv", "w") as file:
+        with open(f"{name}verify_samekey_log.csv", "w") as file:
             file.write("Key,Expected Value,Actual Value\n")
             if value is None:
                 file.write(f"{key},{end_key},MISSING\n")
@@ -178,7 +203,7 @@ async def verify_samekey_diffvalue(redis_client, end_key):
         print(f"Failed to verify key {key}: {e}")
 
 
-async def run_test_suite(requests):
+async def run_test_suite(requests, trigger_bgrewriteaof=True, set_config=True):
     try:
         subprocess.run(["rm", "-rf", "appendonlydir"], cwd="../redis-io_uring")
         redis_process = start_redis_server(6385, cwd="../redis-io_uring")
@@ -186,10 +211,13 @@ async def run_test_suite(requests):
         redis_client = redis.from_url("redis://localhost:6385")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
+        if not trigger_bgrewriteaof:
+            await redis_client.config_set("auto-aof-rewrite-percentage", "0")
+            await redis_client.config_set("auto-aof-rewrite-min-size", "0")
 
         print("#### Starting Test 1: Setting keys with incrementing names")
         start_time = time.time()
-        await set_diffkeys(redis_client, 1, requests)
+        await set_diffkeys(redis_client, 1, requests, trigger_bgrewriteaof)
         end_time = await monitor_redis_logs(redis_process, start_time)
 
         print(f"\tTime taken: {end_time - start_time} seconds")
@@ -199,10 +227,13 @@ async def run_test_suite(requests):
         redis_client = redis.from_url("redis://localhost:6386")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
+        if not trigger_bgrewriteaof:
+            await redis_client.config_set("auto-aof-rewrite-percentage", "0")
+            await redis_client.config_set("auto-aof-rewrite-min-size", "0")
 
         start_time = time.time()
         print("#### Starting Test 2: INCR commands on a single key")
-        await set_incr_commands(redis_client, 1, requests)
+        await set_incr_commands(redis_client, 1, requests, trigger_bgrewriteaof)
         end_time = await monitor_redis_logs(redis_process, start_time)
 
         print(f"\tTime taken: {end_time - start_time} seconds")
@@ -214,9 +245,13 @@ async def run_test_suite(requests):
         redis_client = redis.from_url("redis://localhost:6387")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
+        if not trigger_bgrewriteaof:
+            await redis_client.config_set("auto-aof-rewrite-percentage", "0")
+            await redis_client.config_set("auto-aof-rewrite-min-size", "0")
+
         print("#### Starting Test 3: Setting same keys with incrementing values")
         start_time = time.time()
-        await set_samekey_diffvalue(redis_client, 1, requests)
+        await set_samekey_diffvalue(redis_client, 1, requests, trigger_bgrewriteaof)
         end_time = await monitor_redis_logs(redis_process, start_time)
         print(f"\tTime taken: {end_time - start_time} seconds")
         await verify_samekey_diffvalue(redis_client, requests)
@@ -235,5 +270,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--requests", type=int, default=100000, help="Request count for the benchmark."
     )
+    parser.add_argument(
+        "--no-bgrewriteaof",
+        action="store_true",
+        help="Disable BGREWRITEAOF triggering.",
+    )
+    os.system("rm -rf ../redis-io_uring/appendonlydir")
+    time.sleep(3)
     args = parser.parse_args()
-    asyncio.run(run_test_suite(args.requests))
+    if args.no_bgrewriteaof:
+        name = "norw_"
+    asyncio.run(
+        run_test_suite(
+            args.requests,
+            trigger_bgrewriteaof=not args.no_bgrewriteaof,
+        )
+    )

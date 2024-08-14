@@ -84,10 +84,10 @@ if __name__ == "__main__":
         help="Specify the fsync mode for the AOF benchmark.",
     )
     parser.add_argument(
-        "--only-perf",
+        "--no-strace",
         action="store_true",
         default=False,
-        help="Run only the performance benchmark without resource or strace benchmarks.",
+        help="Run benchmarks without strace.",
     )
     args = parser.parse_args()
 
@@ -97,5 +97,5 @@ if __name__ == "__main__":
         benchmarks_to_run = ["RDB", "AOF", "URING_AOF"]
 
     subprocess.run(["sudo", "./script-cleanup.sh"], check=True)
-    run_benchmarks(args.requests, benchmarks_to_run, args.fsync, args.only_perf)
+    run_benchmarks(args.requests, benchmarks_to_run, args.fsync, args.no_strace)
     print("Benchmark test completed successfully.")

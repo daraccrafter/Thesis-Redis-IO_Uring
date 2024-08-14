@@ -126,6 +126,10 @@ def run_all_tasks(r, process, request_count):
             }
         )
 
+    if only_performance:
+        total_end_time = time.time()
+        log_time("Total", total_end_time - total_start_time)
+        return
     start_time = time.time()
     strace_proc = run_strace(
         process.pid, request_count, csvs_dir_path, log_dir_path, ""

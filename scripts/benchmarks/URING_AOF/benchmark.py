@@ -51,7 +51,7 @@ def log_time(benchmark_name, duration):
 
 
 def run_all_tasks(r, process, request_count):
-    total_start_time = time.time() 
+    total_start_time = time.time()
     r.config_set("save", "")
 
     start_time = time.time()
@@ -65,11 +65,6 @@ def run_all_tasks(r, process, request_count):
     )
     end_time = time.time()
     log_time("Performance benchmark", end_time - start_time)
-
-    if only_performance:
-        total_end_time = time.time()
-        log_time("Total", total_end_time - total_start_time)
-        return
 
     start_time = time.time()
     cpu_usages, memory_usages = [], []
@@ -91,7 +86,6 @@ def run_all_tasks(r, process, request_count):
     monitor_thread.join()
     end_time = time.time()
     log_time("Resource usage benchmark", end_time - start_time)
-
     avg_cpu_usage = np.mean(cpu_usages) if cpu_usages else "N/A"
     median_cpu_usage = np.median(cpu_usages) if cpu_usages else "N/A"
     tail_cpu_usage = np.percentile(cpu_usages, 95) if cpu_usages else "N/A"
@@ -126,7 +120,10 @@ def run_all_tasks(r, process, request_count):
                 "95th Percentile": tail_memory_usage,
             }
         )
-
+    if only_performance:
+        total_end_time = time.time()
+        log_time("Total", total_end_time - total_start_time)
+        return
     start_time = time.time()
     strace_proc = run_strace(
         process.pid, request_count, csvs_dir_path, log_dir_path, ""

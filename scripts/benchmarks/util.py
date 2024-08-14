@@ -137,17 +137,35 @@ def stop_server(process):
     process.wait()
 
 
+import psutil
+import numpy as np
+import time
+
+
 def monitor_process(pid, stop_event, cpu_usages, memory_usages):
     try:
         p = psutil.Process(pid)
         while not stop_event.is_set():
             with p.oneshot():
-                cpu_percent = p.cpu_percent(None)
-                memory_info = p.memory_info().rss / (1024 * 1024)  # in MB
-                cpu_usages.append(cpu_percent)
+                # Get CPU usage of the entire system
+                system_cpu_percent = psutil.cpu_percent(interval=1)
+                # Get memory usage of the process in MB
+                memory_info = p.memory_info().rss / (1024 * 1024)
+
+                # Append to arrays
+                cpu_usages.append(system_cpu_percent)
                 memory_usages.append(memory_info)
+
+            time.sleep(1)  # Adjust the sleep interval as needed
+
     except psutil.NoSuchProcess:
         print(f"Process {pid} not found")
+
+
+# Example usage
+# import threading
+# stop_event = threading.Event()
+# monitor_process(12345, stop_event, [], [])  # Replace 12345 with your process ID
 
 
 import numpy as np
