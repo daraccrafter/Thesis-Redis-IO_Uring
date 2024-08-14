@@ -202,7 +202,9 @@ def create_directories(
 def run_strace(pid, request_count, syscalls_dir, logs_dir, name=""):
     if name != "":
         syscalls_filename = os.path.join(syscalls_dir, f"{name}_syscalls.csv")
-        syscall_times_filename = os.path.join(syscalls_dir, f"{name}_syscalls_times.csv")
+        syscall_times_filename = os.path.join(
+            syscalls_dir, f"{name}_syscalls_times.csv"
+        )
         log_filename = os.path.join(logs_dir, f"{name}_strace.txt")
     else:
         syscalls_filename = os.path.join(syscalls_dir, f"syscalls.csv")
@@ -265,9 +267,9 @@ def run_benchmark(
         "-c",
         "50",
         "-t",
-        "set,lpush,sadd,incr",
+        "set,mset,incr,lpush",
         "-n",
-        str(request_count // 4),
+        str(request_count//4),
         last_arg,
     ]
 

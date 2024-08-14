@@ -51,6 +51,7 @@ def log_time(benchmark_name, duration):
 
 
 def run_all_tasks(r, process, request_count):
+    r.config_set("appendonly", "no")
     total_start_time = time.time()
     start_time = time.time()
     run_benchmark(
