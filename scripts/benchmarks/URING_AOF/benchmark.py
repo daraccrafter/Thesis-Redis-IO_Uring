@@ -5,7 +5,6 @@ import csv
 import threading
 import signal
 import time
-import numpy as np
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -86,44 +85,34 @@ def run_all_tasks(r, process, request_count):
     monitor_thread.join()
     end_time = time.time()
     log_time("Resource usage benchmark", end_time - start_time)
-    avg_cpu_usage = np.mean(cpu_usages) if cpu_usages else "N/A"
-    median_cpu_usage = np.median(cpu_usages) if cpu_usages else "N/A"
-    tail_cpu_usage = np.percentile(cpu_usages, 95) if cpu_usages else "N/A"
-
-    avg_memory_usage = np.mean(memory_usages) if memory_usages else "N/A"
-    median_memory_usage = np.median(memory_usages) if memory_usages else "N/A"
-    tail_memory_usage = np.percentile(memory_usages, 95) if memory_usages else "N/A"
+    avg_cpu_usage = sum(cpu_usages) / len(cpu_usages) if cpu_usages else 0
+    avg_memory_usage = sum(memory_usages) / len(memory_usages) if memory_usages else 0
 
     usage_csv_path = os.path.join(csvs_dir_path, f"usage.csv")
     with open(usage_csv_path, "w", newline="") as usage_csv:
-        fieldnames = [
+            fieldnames = [
             "Metric",
             "Average",
-            "Median",
-            "95th Percentile",
-        ]
-        writer = csv.DictWriter(usage_csv, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerow(
-            {
+            ]
+            writer = csv.DictWriter(usage_csv, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow(
+                {
                 "Metric": "CPU Usage (%)",
                 "Average": avg_cpu_usage,
-                "Median": median_cpu_usage,
-                "95th Percentile": tail_cpu_usage,
-            }
-        )
-        writer.writerow(
-            {
+                }
+            )
+            writer.writerow(
+                {
                 "Metric": "Memory Usage (MB)",
                 "Average": avg_memory_usage,
-                "Median": median_memory_usage,
-                "95th Percentile": tail_memory_usage,
-            }
-        )
+                }
+            )
     if only_performance:
         total_end_time = time.time()
         log_time("Total", total_end_time - total_start_time)
         return
+
     start_time = time.time()
     strace_proc = run_strace(
         process.pid, request_count, csvs_dir_path, log_dir_path, ""

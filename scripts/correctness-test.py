@@ -207,7 +207,6 @@ async def run_test_suite(requests, trigger_bgrewriteaof=True, set_config=True):
     try:
         subprocess.run(["rm", "-rf", "appendonlydir"], cwd="../redis-io_uring")
         redis_process = start_redis_server(6385, cwd="../redis-io_uring")
-
         redis_client = redis.from_url("redis://localhost:6385")
         await redis_client.config_set("correct-test", "yes")
         await redis_client.config_set("correct-test-reqnum", requests)
