@@ -92,9 +92,6 @@ This command will run benchmark tests for the set and incr operations with 500,0
 
 ## Scripts
 
-## Evaluation and Expected Results
-In this section, we will demonstrate how to reproduce our results.
-
 ### Benchmarks
 First, navigate to the `scripts` directory by executing:
 ```sh
